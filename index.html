@@ -413,14 +413,25 @@
         }).catch(err => showCustomAlert("Gagal memperbarui.", "Error")).finally(()=>hideLoading()); 
     }
 
-    async function handleDeletePost(postId, authorId) { 
+    async function handleDeletePost(postId, authorId) {
         const confirmed = await showCustomConfirm("Yakin ingin menghapus karya ini?");
-        if(confirmed){ 
-            showLoading("Menghapus..."); 
-            db.collection("posts").doc(postId).delete().then(() => { 
-                db.collection("users").doc(authorId).update({ karyaCount: firebase.firestore.FieldValue.increment(-1) }); 
-            }).catch(err => showCustomAlert("Gagal menghapus.", "Error")).finally(()=>hideLoading()); 
-        } 
+        if (confirmed) {
+            showLoading("Menghapus...");
+            const user = auth.currentUser;
+            db.collection("posts").doc(postId).delete().then(() => {
+                db.collection("users").doc(authorId).update({ karyaCount: firebase.firestore.FieldValue.increment(-1) });
+                // PERBAIKAN: Ambil data pengguna terbaru dan refresh beranda
+                db.collection("users").doc(user.uid).get().then(doc => {
+                    if (doc.exists) {
+                        fetchAndRenderPosts(doc.data());
+                    }
+                });
+            }).catch(err => {
+                showCustomAlert("Gagal menghapus karya.", "Error");
+            }).finally(() => {
+                hideLoading();
+            });
+        }
     }
 
     function handleFollow(id){ 
