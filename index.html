@@ -50,16 +50,6 @@
         .dropdown-menu { display:none; position:absolute; right:0; top:25px; background:white; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.2); z-index:10; overflow: hidden;}
         .dropdown-menu a { display:block; padding:8px 15px; color:#333; text-decoration:none; font-size:14px; }
         .dropdown-menu a:hover { background-color:#f0f4f8; }
-        #notification-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 2000; display: flex; flex-direction: column; gap: 10px; align-items: center; }
-        .toast-notification { background-color: rgba(0, 0, 0, 0.8); color: white; padding: 12px 20px; border-radius: 25px; font-size: 0.9em; box-shadow: 0 4px 15px rgba(0,0,0,0.2); animation: slideInUp 0.5s forwards; }
-        
-        /* Notif Bell */
-        .header-actions { display: flex; align-items: center; gap: 10px; position: relative; }
-        #notification-btn { background: none; border: none; cursor: pointer; position: relative; color: #6c757d; padding: 5px;}
-        #notification-counter { position: absolute; top: -5px; right: -5px; background-color: #dc3545; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
-        #notification-panel { right: 0; top: 40px; width: 300px; max-height: 400px; overflow-y: auto; }
-        .notification-item { padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 14px; }
-        .notification-item:last-child { border-bottom: none; }
         
         /* Detail Page Styles */
         .like-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #ccc; background-color: #f0f4f8; cursor: pointer; transition: all 0.2s; }
@@ -72,14 +62,14 @@
         
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-
+        
         @media (max-width: 600px) {
             body { background-color: #fff; }
             .container { margin: 0 auto; padding: 10px; }
             .card { box-shadow: none; border-radius: 0; padding: 20px 15px; }
             .header { flex-direction: column; gap: 15px; align-items: stretch; border-radius: 0; }
-            .header-actions { justify-content: space-between; }
+            .header-welcome-info { flex-grow: 1; }
+            .header-actions { justify-content: flex-end; width: 100%; }
             #show-post-modal-btn { flex-grow: 1; text-align: center; }
             .header h2 { font-size: 1.2em; word-break: break-word; }
         }
@@ -93,7 +83,6 @@
     
     <div id="app-container" class="container hidden"></div>
     <div id="modal-container"></div>
-    <div id="notification-container"></div>
     <a href="https://wa.me/628895615630" target="_blank" id="help-btn" class="fab" title="Butuh Bantuan?"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.23 1.056 4.411 2.899 6.001l.111.129-.755 2.726 2.735-.74z"/></svg></a>
     <div id="loading-overlay" class="hidden"><div class="progress-spinner"></div><p id="loading-text">Memuat...</p></div>
 
@@ -111,7 +100,7 @@
     const loadingText = document.getElementById('loading-text');
     
     let stopPostsListener = null;
-    let stopNotificationListener = null;
+    let stopPostDetailListener = null;
     let currentUserData = null;
 
     function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.remove('hidden'); }
@@ -138,54 +127,20 @@
         });
     }
 
-    function showToastNotification(message) {
-        const container = document.getElementById('notification-container');
-        const toast = document.createElement('div');
-        toast.className = 'toast-notification';
-        toast.textContent = message;
-        container.appendChild(toast);
-        setTimeout(() => { toast.remove(); }, 4000);
-    }
-
-    function setupNotificationListener(userId) {
-        if (stopNotificationListener) stopNotificationListener();
-
-        stopNotificationListener = db.collection("users").doc(userId).collection("notifications")
-            .orderBy("timestamp", "desc")
-            .onSnapshot(snapshot => {
-                const notifCounter = document.getElementById('notification-counter');
-                const notifPanel = document.getElementById('notification-panel');
-
-                if (notifCounter) {
-                    notifCounter.textContent = snapshot.size;
-                    notifCounter.classList.toggle('hidden', snapshot.empty);
-                }
-
-                if (notifPanel) {
-                    notifPanel.innerHTML = '';
-                    if(snapshot.empty){
-                        notifPanel.innerHTML = '<div class="notification-item">Tidak ada notifikasi baru.</div>';
-                    } else {
-                        snapshot.forEach(doc => {
-                            const notif = doc.data();
-                            const item = document.createElement('div');
-                            item.className = 'notification-item';
-                            item.textContent = notif.message;
-                            notifPanel.appendChild(item);
-                        });
-                    }
-                }
-
-                snapshot.docChanges().forEach(change => {
-                    if (change.type === "added" && change.doc.data().timestamp.toDate() > new Date(Date.now() - 5000)) {
-                        showToastNotification(change.doc.data().message);
-                    }
-                });
-            });
+    function cleanupListeners() {
+        if (stopPostsListener) {
+            stopPostsListener();
+            stopPostsListener = null;
+        }
+        if (stopPostDetailListener) {
+            stopPostDetailListener();
+            stopPostDetailListener = null;
+        }
     }
 
     auth.onAuthStateChanged(user => {
         showLoading('Mengecek sesi...');
+        cleanupListeners();
         if (user) {
             db.collection("users").doc(user.uid).onSnapshot(doc => {
                 if(doc.exists) {
@@ -201,13 +156,12 @@
             currentUserData = null;
             authContainer.classList.remove('hidden');
             appContainer.classList.add('hidden');
-            if (stopPostsListener) stopPostsListener();
-            if (stopNotificationListener) stopNotificationListener();
             hideLoading();
         }
     });
 
     function renderDashboard() {
+        cleanupListeners();
         authContainer.classList.add('hidden');
         appContainer.classList.remove('hidden');
         appContainer.innerHTML = `
@@ -215,17 +169,12 @@
                 <div class="header">
                     <div style="display:flex; align-items:center; gap:15px;">
                         <div id="profile-bubble" class="profile-bubble" title="Lihat Profil Saya">${currentUserData.name.charAt(0).toUpperCase()}</div>
-                        <div>
+                        <div class="header-welcome-info">
                             <h2 style="text-align:left; margin:0;">Selamat Datang, ${currentUserData.name}!</h2>
                             <button id="logout-btn" class="btn-danger" style="padding: 4px 8px; font-size: 12px; border-radius: 6px;">Logout</button>
                         </div>
                     </div>
                     <div class="header-actions">
-                        <button id="notification-btn" title="Notifikasi">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2zm-2 1H8v-6c0-2.48 1.51-4.5 4-4.5s4 2.02 4 4.5v6z"/></svg>
-                            <span id="notification-counter" class="hidden">0</span>
-                        </button>
-                        <div id="notification-panel" class="dropdown-menu"></div>
                         <button id="show-post-modal-btn" class="btn">Kirim Karya Baru +</button>
                     </div>
                 </div>
@@ -234,82 +183,57 @@
         document.getElementById('profile-bubble').onclick = () => renderProfilePage(currentUserData.uid);
         document.getElementById('logout-btn').onclick = () => auth.signOut();
         document.getElementById('show-post-modal-btn').onclick = () => renderPostModal('create');
-        document.getElementById('notification-btn').onclick = () => {
-            const panel = document.getElementById('notification-panel');
-            panel.style.display = panel.style.display === 'block' ? 'none' : 'block';
-        };
         fetchAndRenderPosts();
-        setupNotificationListener(currentUserData.uid);
     }
 
-    async function fetchAndRenderPosts() {
-        if (stopPostsListener) {
-            stopPostsListener();
-            stopPostsListener = null;
-        }
+    function fetchAndRenderPosts() {
+        cleanupListeners();
         const madingWall = document.getElementById('mading-wall');
         if (!madingWall) return;
         madingWall.innerHTML = '<p>Memuat beranda...</p>';
         
-        const following = currentUserData.following || [];
-
-        if (following.length === 0) {
-            stopPostsListener = db.collection("posts").orderBy("timestamp", "desc").onSnapshot(querySnapshot => {
-                if (!document.getElementById('mading-wall')) return;
-                const posts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                renderPosts(posts);
-            }, error => {
-                console.error("Gagal memuat beranda umum:", error);
-                madingWall.innerHTML = '<p>Gagal memuat karya.</p>';
-            });
-            return;
-        }
-
-        try {
-            const postPromises = following.map(uid => db.collection("posts").where("authorId", "==", uid).limit(5).get());
-            const postSnapshots = await Promise.all(postPromises);
-            let followedPosts = [];
-            postSnapshots.forEach(snapshot => snapshot.forEach(doc => followedPosts.push({ id: doc.id, ...doc.data() })));
+        stopPostsListener = db.collection("posts").orderBy("timestamp", "desc").onSnapshot(querySnapshot => {
+            if (!document.getElementById('mading-wall')) return; // Ensure view is still active
+            const allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            const following = currentUserData.following || [];
             
-            followedPosts.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
-            const topFollowedPosts = followedPosts.slice(0, 2);
-            const followedPostIds = new Set(topFollowedPosts.map(p => p.id));
-
-            const publicSnapshot = await db.collection("posts").orderBy("timestamp", "desc").limit(20).get();
-            let publicPosts = [];
-            publicSnapshot.forEach(doc => publicPosts.push({ id: doc.id, ...doc.data() }));
-
-            const filteredPublicPosts = publicPosts.filter(p => !followedPostIds.has(p.id));
-
             madingWall.innerHTML = '';
-
-            if (topFollowedPosts.length > 0) {
-                const followedHeader = document.createElement('div');
-                followedHeader.style.gridColumn = '1 / -1';
-                followedHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Karya dari yang Anda ikuti</h2>`;
-                madingWall.appendChild(followedHeader);
-                renderPosts(topFollowedPosts, true);
-            }
-
-            const publicHeader = document.createElement('div');
-            publicHeader.style.gridColumn = '1 / -1';
-            publicHeader.style.marginTop = topFollowedPosts.length > 0 ? '40px' : '0';
-            publicHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Jelajahi Karya Lain</h2>`;
-            madingWall.appendChild(publicHeader);
-            
-            if (filteredPublicPosts.length > 0) {
-                renderPosts(filteredPublicPosts, true);
+            if (following.length === 0) {
+                renderPosts(allPosts);
             } else {
-                madingWall.innerHTML += '<p>Tidak ada karya lain untuk dijelajahi saat ini.</p>';
+                const followedPosts = allPosts.filter(p => following.includes(p.authorId));
+                const topFollowedPosts = followedPosts.slice(0, 2);
+                const followedPostIds = new Set(topFollowedPosts.map(p => p.id));
+                const filteredPublicPosts = allPosts.filter(p => !followedPostIds.has(p.id));
+
+                if (topFollowedPosts.length > 0) {
+                    const followedHeader = document.createElement('div');
+                    followedHeader.style.gridColumn = '1 / -1';
+                    followedHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Karya dari yang Anda ikuti</h2>`;
+                    madingWall.appendChild(followedHeader);
+                    renderPosts(topFollowedPosts, true);
+                }
+
+                const publicHeader = document.createElement('div');
+                publicHeader.style.gridColumn = '1 / -1';
+                publicHeader.style.marginTop = topFollowedPosts.length > 0 ? '40px' : '0';
+                publicHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Jelajahi Karya Lain</h2>`;
+                madingWall.appendChild(publicHeader);
+                
+                if (filteredPublicPosts.length > 0) {
+                    renderPosts(filteredPublicPosts, true);
+                } else {
+                    madingWall.innerHTML += '<p>Tidak ada karya lain untuk dijelajahi saat ini.</p>';
+                }
             }
-        } catch (error) {
-            console.error("Gagal memuat beranda hibrida:", error);
-            madingWall.innerHTML = `<p>Gagal memuat beranda. Coba muat ulang halaman.</p>`;
-        }
+        }, error => {
+            console.error("Gagal memuat beranda:", error);
+            if (madingWall) madingWall.innerHTML = '<p>Gagal memuat karya.</p>';
+        });
     }
     
     function renderPosts(posts, append = false) {
-        const wallId = append ? 'mading-wall' : (document.getElementById('profile-wall') ? 'profile-wall' : 'mading-wall');
+        const wallId = document.getElementById('profile-wall') ? 'profile-wall' : 'mading-wall';
         const wall = document.getElementById(wallId);
         if(!wall) return;
         if (!append) wall.innerHTML = '';
@@ -343,24 +267,27 @@
         });
     }
 
-    async function renderPostDetailPage(postId) {
+    function renderPostDetailPage(postId) {
+        cleanupListeners();
         showLoading("Memuat karya...");
-        if (stopPostsListener) stopPostsListener();
 
-        try {
-            const postDoc = await db.collection("posts").doc(postId).get();
-            if (!postDoc.exists) throw new Error("Karya tidak ditemukan.");
+        stopPostDetailListener = db.collection("posts").doc(postId).onSnapshot(async (postDoc) => {
+            if (!document.getElementById('app-container')) return; 
+            if (!postDoc.exists) {
+                showCustomAlert("Karya tidak ditemukan atau telah dihapus.", "Error");
+                renderDashboard();
+                return;
+            }
             const postData = { id: postDoc.id, ...postDoc.data() };
             
             const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
             const comments = commentsSnapshot.docs.map(doc => doc.data());
             comments.sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
 
-
-            const isLiked = postData.likes && postData.likes.includes(currentUserData.uid);
+            const isLiked = currentUserData && postData.likes && postData.likes.includes(currentUserData.uid);
 
             appContainer.innerHTML = `
-                <div id="post-detail-view" class="card">
+                <div id="post-detail-view" class="card" data-post-id="${postData.id}">
                     <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
                     <h1>${postData.title}</h1>
                     <p class="meta">oleh <a href="#" class="author-link" data-author-id="${postData.authorId}">${postData.authorName}</a> pada ${postData.timestamp ? postData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
@@ -382,6 +309,7 @@
 
             const commentList = document.getElementById('comment-list');
             if(comments.length > 0) {
+                commentList.innerHTML = ''; // Clear previous comments
                 comments.forEach(comment => {
                     const li = document.createElement('li');
                     li.className = 'comment-item';
@@ -393,30 +321,25 @@
             }
 
             document.getElementById('back-to-mading-btn').onclick = renderDashboard;
-            appContainer.querySelector('.author-link').onclick = (e) => renderProfilePage(e.target.dataset.authorId);
-            document.getElementById('like-btn').onclick = () => handleLikePost(postId, postData.authorId);
-            document.getElementById('comment-form').onsubmit = (e) => {
-                e.preventDefault();
-                handleCreateComment(postId, postData.authorId);
-            };
-
-        } catch (error) {
+            hideLoading();
+        }, error => {
             console.error("Gagal membuka detail karya:", error);
             showCustomAlert("Gagal membuka detail karya.", "Error");
             renderDashboard();
-        } finally {
-            hideLoading();
-        }
+        });
     }
 
     async function renderProfilePage(authorId) {
+        cleanupListeners();
         showLoading("Memuat profil...");
-        if (stopPostsListener) stopPostsListener();
         
         try {
-            if (!currentUserData) throw new Error("Pengguna tidak login");
+            if (!currentUserData) {
+                auth.signOut(); // Force logout if data is missing
+                return;
+            }
 
-            appContainer.innerHTML = `<div id="profile-view" class="card"><button id="back-to-mading-btn" class="back-btn">← Kembali</button><div class="profile-header"><div id="profile-pic-large" class="profile-pic-large"></div><div><div style="display:flex;align-items:center;gap:10px;justify-content:center;"><h1 id="profile-name" style="text-align:center;margin:0;"></h1><span id="verified-badge-container"></span></div><div class="profile-stats"><p><strong id="karya-count">0</strong> Karya</p><p><strong id="followers-count">0</strong> Followers</p><p><strong id="following-count">0</strong> Following</p></div></div></div><div id="follow-btn-container" style="margin-bottom:20px; text-align:center;"></div><hr><h2 style="text-align:left;font-size:1.5em;margin-top:20px;">Karya Penulis</h2><div id="profile-wall" class="mading-wall"></div></div>`;
+            appContainer.innerHTML = `<div id="profile-view" class="card" data-author-id="${authorId}"><button id="back-to-mading-btn" class="back-btn">← Kembali</button><div class="profile-header"><div id="profile-pic-large" class="profile-pic-large"></div><div><div style="display:flex;align-items:center;gap:10px;justify-content:center;"><h1 id="profile-name" style="text-align:center;margin:0;"></h1><span id="verified-badge-container"></span></div><div class="profile-stats"><p><strong id="karya-count">0</strong> Karya</p><p><strong id="followers-count">0</strong> Followers</p><p><strong id="following-count">0</strong> Following</p></div></div></div><div id="follow-btn-container" style="margin-bottom:20px; text-align:center;"></div><hr><h2 style="text-align:left;font-size:1.5em;margin-top:20px;">Karya Penulis</h2><div id="profile-wall" class="mading-wall"></div></div>`;
             
             document.getElementById('back-to-mading-btn').onclick = renderDashboard;
 
@@ -440,10 +363,8 @@
                 const followBtnContainer = document.getElementById('follow-btn-container');
                 if (isFollowing) {
                     followBtnContainer.innerHTML = `<button id="unfollow-btn" class="btn btn-secondary" style="width:100%;">Unfollow</button>`;
-                    document.getElementById('unfollow-btn').onclick = () => handleUnfollow(authorId);
                 } else {
                     followBtnContainer.innerHTML = `<button id="follow-btn" class="btn" style="width:100%;">Follow</button>`;
-                    document.getElementById('follow-btn').onclick = () => handleFollow(authorId);
                 }
             }
             
@@ -452,7 +373,7 @@
             postsSnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
             posts.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
 
-            renderPosts(posts, false); // Renders to profile-wall because it's the only wall present
+            renderPosts(posts, false);
             
         } catch(error) {
             console.error("Gagal memuat profil:", error);
@@ -463,15 +384,46 @@
         }
     }
     
-    appContainer.addEventListener('click', e => {
+    document.addEventListener('click', (e) => {
         const target = e.target;
+        
+        // --- Navigation ---
         if (target.closest('.post-card-clickable')) { renderPostDetailPage(target.closest('.post-card-clickable').dataset.postId); }
-        if (target.matches('.author-link')) { e.preventDefault(); renderProfilePage(target.dataset.authorId); }
+        if (target.closest('.author-link')) { e.preventDefault(); renderProfilePage(target.closest('.author-link').dataset.authorId); }
+
+        // --- Post Detail Page Actions ---
+        if (target.closest('#like-btn')) { 
+            const postId = document.getElementById('post-detail-view')?.dataset.postId;
+            if (postId) handleLikePost(postId);
+        }
+        if (target.closest('#comment-form button[type="submit"]')) { 
+            e.preventDefault();
+            const postId = document.getElementById('post-detail-view')?.dataset.postId;
+            if (postId) handleCreateComment(postId);
+        }
+
+        // --- Profile Page Actions ---
+        if (target.closest('#follow-btn')) {
+            const authorId = document.getElementById('profile-view')?.dataset.authorId;
+            if (authorId) handleFollow(authorId);
+        }
+        if (target.closest('#unfollow-btn')) {
+            const authorId = document.getElementById('profile-view')?.dataset.authorId;
+            if (authorId) handleUnfollow(authorId);
+        }
+
+        // --- Menu Actions ---
         const menuBtn = target.closest('.post-menu-btn');
         if (menuBtn) {
+            document.querySelectorAll('.dropdown-menu').forEach(m => {
+                if(m.id !== `menu-${menuBtn.dataset.menuId}`) m.style.display = 'none'
+            });
             const menu = document.getElementById(`menu-${menuBtn.dataset.menuId}`);
             menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
+        } else if (!target.closest('.dropdown-menu')) {
+             document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
         }
+        
         const editBtn = target.closest('.edit-btn');
         if (editBtn) { 
             e.preventDefault(); 
@@ -528,7 +480,7 @@
             likes: []
         }).then(() => { 
             modalContainer.innerHTML = ''; 
-            db.collection("users").doc(currentUserData.uid).update({ karyaCount: firebase.firestore.FieldValue.increment(1) }); 
+            db.collection("users").doc(currentUserData.uid).update({ karyaCount: firebase.firestore.FieldValue.increment(1) });
         }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading()); 
     }
 
@@ -539,7 +491,6 @@
             content: document.getElementById('post-content').value 
         }).then(() => { 
             modalContainer.innerHTML = '';
-            showToastNotification("Karya berhasil diperbarui.");
         }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading());
     }
 
@@ -557,15 +508,15 @@
             await batch.commit();
             await db.collection("users").doc(currentUserData.uid).update({ karyaCount: firebase.firestore.FieldValue.increment(-1) });
             
-            showToastNotification("Karya berhasil dihapus.");
+            showCustomAlert("Karya berhasil dihapus.");
             renderDashboard();
             hideLoading();
         }
     }
     
-    async function handleLikePost(postId, authorId) {
+    async function handleLikePost(postId) {
+        if (!currentUserData) { auth.signOut(); return; }
         const postRef = db.collection("posts").doc(postId);
-        const user = auth.currentUser;
         
         try {
             await db.runTransaction(async (transaction) => {
@@ -576,71 +527,44 @@
                 const likes = postData.likes || [];
                 let newLikes = [...likes];
                 let newLikeCount = postData.likeCount || 0;
-                let isLiked = newLikes.includes(user.uid);
+                let isLiked = newLikes.includes(currentUserData.uid);
 
                 if (isLiked) {
-                    newLikes = newLikes.filter(uid => uid !== user.uid);
+                    newLikes = newLikes.filter(uid => uid !== currentUserData.uid);
                     newLikeCount--;
                 } else {
-                    newLikes.push(user.uid);
+                    newLikes.push(currentUserData.uid);
                     newLikeCount++;
                 }
                 
                 transaction.update(postRef, { likes: newLikes, likeCount: newLikeCount });
-                
-                if (!isLiked && user.uid !== authorId) {
-                    db.collection("users").doc(authorId).collection("notifications").add({
-                        message: `${currentUserData.name} menyukai karya Anda: "${postData.title.substring(0, 20)}..."`,
-                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                    });
-                }
             });
-
-            const likeBtn = document.getElementById('like-btn');
-            const likeCountSpan = document.getElementById('like-count');
-            const currentCount = parseInt(likeCountSpan.textContent);
-            
-            if (likeBtn.classList.contains('liked')) {
-                likeBtn.classList.remove('liked');
-                likeCountSpan.textContent = currentCount - 1;
-            } else {
-                likeBtn.classList.add('liked');
-                likeCountSpan.textContent = currentCount + 1;
-            }
         } catch (error) {
             console.error("Gagal menyukai post:", error);
             showCustomAlert("Gagal memberikan suka.", "Error");
         }
     }
 
-    async function handleCreateComment(postId, authorId) {
+    async function handleCreateComment(postId) {
+        if (!currentUserData) { auth.signOut(); return; }
         const content = document.getElementById('comment-content').value;
         if (!content.trim()) return;
 
         showLoading("Mengirim komentar...");
-        const user = auth.currentUser;
         const postRef = db.collection("posts").doc(postId);
 
         try {
             await db.collection("comments").add({
                 postId: postId,
                 content: content,
-                authorId: user.uid,
+                authorId: currentUserData.uid,
                 authorName: currentUserData.name,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
 
             await postRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
-            
-            if (user.uid !== authorId) {
-                const postData = (await postRef.get()).data();
-                db.collection("users").doc(authorId).collection("notifications").add({
-                    message: `${currentUserData.name} mengomentari: "${postData.title.substring(0, 20)}..."`,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                });
-            }
-
-            renderPostDetailPage(postId);
+            // The onSnapshot listener in renderPostDetailPage will handle the UI update
+            document.getElementById('comment-content').value = '';
         } catch (error) {
             console.error("Gagal mengirim komentar:", error);
             showCustomAlert("Gagal mengirim komentar.", "Error");
@@ -650,25 +574,21 @@
     }
 
     function handleFollow(id){ 
+        if (!currentUserData) { auth.signOut(); return; }
         showLoading("Mengikuti..."); 
-        const user = auth.currentUser;
         const batch=db.batch(); 
-        batch.update(db.collection('users').doc(user.uid),{following:firebase.firestore.FieldValue.arrayUnion(id)}); 
-        batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayUnion(user.uid)}); 
-        batch.commit().then(() => {
-            renderProfilePage(id);
-        }).catch(err=>{console.error(err); showCustomAlert("Gagal mengikuti.", "Error"); hideLoading();}); 
+        batch.update(db.collection('users').doc(currentUserData.uid),{following:firebase.firestore.FieldValue.arrayUnion(id)}); 
+        batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayUnion(currentUserData.uid)}); 
+        batch.commit().catch(err=>{console.error(err); showCustomAlert("Gagal mengikuti.", "Error"); hideLoading();}); 
     }
 
     function handleUnfollow(id){ 
+        if (!currentUserData) { auth.signOut(); return; }
         showLoading("Batal mengikuti..."); 
-        const user = auth.currentUser;
         const batch=db.batch(); 
-        batch.update(db.collection('users').doc(user.uid),{following:firebase.firestore.FieldValue.arrayRemove(id)}); 
-        batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayRemove(user.uid)}); 
-        batch.commit().then(() => {
-            renderProfilePage(id);
-        }).catch(err=>{console.error(err); showCustomAlert("Gagal batal mengikuti.", "Error"); hideLoading();}); 
+        batch.update(db.collection('users').doc(currentUserData.uid),{following:firebase.firestore.FieldValue.arrayRemove(id)}); 
+        batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayRemove(currentUserData.uid)}); 
+        batch.commit().catch(err=>{console.error(err); showCustomAlert("Gagal batal mengikuti.", "Error"); hideLoading();}); 
     }
 </script>
 </body>
