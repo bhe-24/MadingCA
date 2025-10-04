@@ -73,7 +73,7 @@
     <div id="app-container" class="container hidden"></div>
     <div id="modal-container"></div>
     <div id="notification-container"></div>
-    <a href="https://wa.me/628895615630" target="_blank" id="help-btn" class="fab" title="Butuh Bantuan?"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.23 1.056 4.411 2.899 6.001l.111.129-.755 2.726 2.735-.74z"/></svg></a>
+    <a href="https://wa.me/628895615630" target="_blank" id="help-btn" class="fab" title="Butuh Bantuan?"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.23 1.056 4.411 2.899 6.001l.111.129-.755 2.726 2.735-.74z"/></svg></a>
     <div id="loading-overlay" class="hidden"><div class="progress-spinner"></div><p id="loading-text">Memuat...</p></div>
 
 <script>
@@ -182,38 +182,20 @@
     }
 
     async function fetchAndRenderPosts(userData) {
-        if (stopPostsListener) stopPostsListener();
+        if (stopPostsListener) {
+            stopPostsListener();
+            stopPostsListener = null;
+        }
         const madingWall = document.getElementById('mading-wall');
         if (!madingWall) return;
-        madingWall.innerHTML = '<p>Memuat karya...</p>';
+        madingWall.innerHTML = '<p>Memuat beranda...</p>';
         
         const following = userData.following || [];
-        if (following.length > 0) {
-            // Beranda Personal
-            madingWall.innerHTML = '<p>Memuat karya dari penulis yang Anda ikuti...</p>';
-            // PERBAIKAN: Hapus .orderBy() untuk menghindari error index
-            const postPromises = following.map(uid => db.collection("posts").where("authorId", "==", uid).limit(10).get());
-            try {
-                const postSnapshots = await Promise.all(postPromises);
-                let allPosts = [];
-                postSnapshots.forEach(snapshot => snapshot.forEach(doc => allPosts.push({ id: doc.id, ...doc.data() })));
-                allPosts.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
-                
-                madingWall.innerHTML = '';
-                if (allPosts.length === 0) {
-                    madingWall.innerHTML = '<p>Penulis yang Anda ikuti belum punya karya. Coba jelajahi penulis lain!</p>';
-                } else {
-                    renderPosts(allPosts);
-                }
-            } catch (error) {
-                console.error("Gagal memuat beranda personal:", error);
-                madingWall.innerHTML = '<p>Gagal memuat karya dari penulis yang Anda ikuti.</p>';
-            }
-        } else {
-            // Beranda Umum
+
+        if (following.length === 0) {
             stopPostsListener = db.collection("posts").orderBy("timestamp", "desc").onSnapshot(querySnapshot => {
                 if (!document.getElementById('mading-wall')) return;
-                let posts = [];
+                const posts = [];
                 querySnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
                 
                 if (posts.length === 0) {
@@ -225,12 +207,63 @@
                 console.error("Gagal memuat beranda umum:", error);
                 madingWall.innerHTML = '<p>Gagal memuat karya.</p>';
             });
+            return;
+        }
+
+        try {
+            const postPromises = following.map(uid => db.collection("posts").where("authorId", "==", uid).limit(5).get());
+            const postSnapshots = await Promise.all(postPromises);
+            let followedPosts = [];
+            postSnapshots.forEach(snapshot => snapshot.forEach(doc => followedPosts.push({ id: doc.id, ...doc.data() })));
+            
+            followedPosts.sort((a, b) => (b.timestamp?.toDate() || 0) - (a.timestamp?.toDate() || 0));
+            const topFollowedPosts = followedPosts.slice(0, 2);
+            const followedPostIds = new Set(topFollowedPosts.map(p => p.id));
+
+            const publicSnapshot = await db.collection("posts").orderBy("timestamp", "desc").limit(20).get();
+            let publicPosts = [];
+            publicSnapshot.forEach(doc => publicPosts.push({ id: doc.id, ...doc.data() }));
+
+            const filteredPublicPosts = publicPosts.filter(p => !followedPostIds.has(p.id));
+
+            madingWall.innerHTML = '';
+
+            if (topFollowedPosts.length > 0) {
+                const followedHeader = document.createElement('div');
+                followedHeader.style.gridColumn = '1 / -1';
+                followedHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Karya dari yang Anda ikuti</h2>`;
+                madingWall.appendChild(followedHeader);
+                renderPosts(topFollowedPosts, true);
+            }
+
+            const publicHeader = document.createElement('div');
+            publicHeader.style.gridColumn = '1 / -1';
+            publicHeader.style.marginTop = topFollowedPosts.length > 0 ? '40px' : '0';
+            publicHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Jelajahi Karya Lain</h2>`;
+            madingWall.appendChild(publicHeader);
+            
+            if (filteredPublicPosts.length > 0) {
+                renderPosts(filteredPublicPosts, true);
+            } else {
+                madingWall.innerHTML += '<p>Tidak ada karya lain untuk dijelajahi saat ini.</p>';
+            }
+        } catch (error) {
+            console.error("Gagal memuat beranda hibrida:", error);
+            madingWall.innerHTML = `<p>Gagal memuat beranda. Coba muat ulang halaman.</p>`;
         }
     }
     
-    function renderPosts(posts) {
+    function renderPosts(posts, append = false) {
         const madingWall = document.getElementById('mading-wall');
-        madingWall.innerHTML = '';
+        if (!append) {
+            madingWall.innerHTML = '';
+        }
+        
+        if (posts.length === 0 && !append) {
+            madingWall.innerHTML = '<p>Belum ada karya yang dikirim. Jadilah yang pertama!</p>';
+            return;
+        }
+
         posts.forEach(post => {
             const postId = post.id;
             const postCard = document.createElement('div');
