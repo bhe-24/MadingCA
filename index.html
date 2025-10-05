@@ -51,12 +51,17 @@
         .dropdown-menu a { display:block; padding:8px 15px; color:#333; text-decoration:none; font-size:14px; }
         .dropdown-menu a:hover { background-color:#f0f4f8; }
         
+        /* Search */
+        #search-btn { background: none; border: none; cursor: pointer; color: #6c757d; padding: 5px; }
+        .search-result-item { padding: 10px; border-bottom: 1px solid #eee; cursor: pointer; }
+        .search-result-item:hover { background-color: #f0f4f8; }
+        
         /* Detail Page Styles */
         .like-btn { padding: 8px 15px; border-radius: 20px; border: 1px solid #ccc; background-color: #f0f4f8; cursor: pointer; transition: all 0.2s; }
         .like-btn.liked { background-color: #e3f2fd; border-color: var(--secondary); color: var(--secondary); font-weight: 600; }
         .comment-section { margin-top: 30px; }
         .comment-list { list-style-type: none; padding: 0; margin-top: 20px; }
-        .comment-item { background-color: var(--accent); padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .comment-item { position: relative; background-color: var(--accent); padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         .comment-item strong { color: var(--primary); }
         .comment-item p { margin: 5px 0 0; }
         
@@ -140,7 +145,7 @@
                 if(doc.exists) {
                     const wasNull = currentUserData === null;
                     currentUserData = { uid: user.uid, ...doc.data() };
-                    if (wasNull && !document.getElementById('mading-view')) {
+                    if (wasNull || !document.getElementById('mading-view')) {
                          renderDashboard();
                     }
                     hideLoading();
@@ -168,7 +173,10 @@
                             <button id="logout-btn" class="btn-danger" style="padding: 4px 8px; font-size: 12px; border-radius: 6px;">Logout</button>
                         </div>
                     </div>
-                    <div class="header-actions">
+                    <div class="header-actions" style="display:flex; align-items:center; gap:10px;">
+                        <button id="search-btn" title="Cari">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+                        </button>
                         <button id="show-post-modal-btn" class="btn">Kirim Karya Baru +</button>
                     </div>
                 </div>
@@ -177,11 +185,12 @@
         document.getElementById('profile-bubble').onclick = () => renderProfilePage(currentUserData.uid);
         document.getElementById('logout-btn').onclick = () => auth.signOut();
         document.getElementById('show-post-modal-btn').onclick = () => renderPostModal('create');
+        document.getElementById('search-btn').onclick = renderSearchView;
         fetchAndRenderPosts();
     }
 
     function fetchAndRenderPosts() {
-        cleanupListeners();
+        if (stopPostsListener) { stopPostsListener(); stopPostsListener = null; }
         const madingWall = document.getElementById('mading-wall');
         if (!madingWall) return;
         madingWall.innerHTML = '<p>Memuat beranda...</p>';
@@ -275,11 +284,12 @@
             const postData = { id: postDoc.id, ...postDoc.data() };
             
             const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
-            const comments = commentsSnapshot.docs.map(doc => doc.data());
+            let comments = [];
+            commentsSnapshot.forEach(doc => comments.push({id: doc.id, ...doc.data()}));
             comments.sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
 
             const isLiked = currentUserData && postData.likes && postData.likes.includes(currentUserData.uid);
-
+            
             appContainer.innerHTML = `
                 <div id="post-detail-view" class="card" data-post-id="${postData.id}">
                     <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
@@ -302,18 +312,43 @@
                 </div>`;
 
             const commentList = document.getElementById('comment-list');
-            if(comments.length > 0) {
-                commentList.innerHTML = ''; // Clear previous comments
-                comments.forEach(comment => {
+            commentList.innerHTML = '';
+            const commentsByParent = comments.reduce((acc, comment) => {
+                const parentId = comment.parentId || 'root';
+                if (!acc[parentId]) acc[parentId] = [];
+                acc[parentId].push(comment);
+                return acc;
+            }, {});
+
+            const renderCommentTree = (parentId, container) => {
+                if (!commentsByParent[parentId]) return;
+                commentsByParent[parentId].forEach(comment => {
+                    let menuButton = '';
+                    if (currentUserData && currentUserData.uid === comment.authorId) {
+                        menuButton = `<div class="post-menu"><button class="post-menu-btn" data-menu-id="comment-${comment.id}">&#8942;</button><div id="menu-comment-${comment.id}" class="dropdown-menu"><a href="#" class="edit-comment-btn" data-comment-id="${comment.id}">Edit</a><a href="#" class="delete-comment-btn" data-comment-id="${comment.id}">Hapus</a></div></div>`;
+                    }
                     const li = document.createElement('li');
                     li.className = 'comment-item';
-                    li.innerHTML = `<strong>${comment.authorName}</strong><p>${comment.content}</p>`;
-                    commentList.appendChild(li);
+                    li.innerHTML = `
+                        ${menuButton}
+                        <strong>${comment.authorName}</strong>
+                        <p>${comment.content}</p>
+                        <div class="reply-btn" data-comment-id="${comment.id}">Balas</div>
+                    `;
+                    container.appendChild(li);
+                    
+                    const repliesContainer = document.createElement('div');
+                    repliesContainer.className = 'replies-container';
+                    li.appendChild(repliesContainer);
+                    renderCommentTree(comment.id, repliesContainer);
                 });
+            };
+
+            if(comments.length > 0) {
+                renderCommentTree('root', commentList);
             } else {
                 commentList.innerHTML = '<p>Jadilah yang pertama berkomentar!</p>';
             }
-
             document.getElementById('back-to-mading-btn').onclick = renderDashboard;
             hideLoading();
         }, error => {
@@ -323,7 +358,7 @@
         });
     }
 
-    function renderProfilePage(authorId) {
+    async function renderProfilePage(authorId) {
         cleanupListeners();
         showLoading("Memuat profil...");
         
@@ -374,6 +409,71 @@
             renderDashboard();
         });
     }
+
+    async function renderSearchView() {
+        cleanupListeners();
+        appContainer.innerHTML = `
+            <div id="search-view" class="card">
+                <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
+                <h2>Pencarian</h2>
+                <div class="form-group">
+                    <input type="text" id="search-input" placeholder="Ketik judul karya atau nama penulis...">
+                </div>
+                <div id="search-results"></div>
+            </div>`;
+        document.getElementById('back-to-mading-btn').onclick = renderDashboard;
+
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+        
+        showLoading("Menyiapkan pencarian...");
+        const [postsSnapshot, usersSnapshot] = await Promise.all([
+            db.collection("posts").get(),
+            db.collection("users").get()
+        ]);
+        const allPosts = postsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const allUsers = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        hideLoading();
+        
+        searchInput.oninput = () => {
+            const query = searchInput.value.toLowerCase();
+            if (!query) {
+                searchResults.innerHTML = '';
+                return;
+            }
+
+            const matchingPosts = allPosts.filter(post => post.title.toLowerCase().includes(query));
+            const matchingUsers = allUsers.filter(user => user.name.toLowerCase().includes(query));
+            
+            searchResults.innerHTML = '';
+
+            if (matchingUsers.length > 0) {
+                searchResults.innerHTML += '<h3>Penulis Ditemukan</h3>';
+                matchingUsers.forEach(user => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item author-link';
+                    item.textContent = user.name;
+                    item.dataset.authorId = user.id;
+                    searchResults.appendChild(item);
+                });
+            }
+
+            if (matchingPosts.length > 0) {
+                searchResults.innerHTML += '<h3 style="margin-top:20px;">Karya Ditemukan</h3>';
+                matchingPosts.forEach(post => {
+                    const item = document.createElement('div');
+                    item.className = 'search-result-item post-card-clickable';
+                    item.innerHTML = `<strong>${post.title}</strong><br><small>oleh: ${post.authorName}</small>`;
+                    item.dataset.postId = post.id;
+                    searchResults.appendChild(item);
+                });
+            }
+
+            if (matchingUsers.length === 0 && matchingPosts.length === 0) {
+                searchResults.innerHTML = '<p>Tidak ada hasil ditemukan.</p>';
+            }
+        };
+    }
     
     document.addEventListener('click', (e) => {
         const target = e.target;
@@ -385,14 +485,16 @@
             const postId = document.getElementById('post-detail-view')?.dataset.postId;
             if (postId) handleLikePost(postId);
         }
+        
         const commentForm = target.closest('#comment-form');
         if (commentForm) {
              commentForm.onsubmit = (event) => {
                 event.preventDefault();
                 const postId = document.getElementById('post-detail-view')?.dataset.postId;
-                if (postId) handleCreateComment(postId);
+                if (postId) handleCreateComment(postId, document.getElementById('comment-content').value);
             }
         }
+
         if (target.closest('#follow-btn')) {
             const authorId = document.getElementById('profile-view')?.dataset.authorId;
             if (authorId) handleFollow(authorId);
@@ -457,10 +559,16 @@
     }
 
     function handleCreatePost() { 
+        const title = document.getElementById('post-title').value;
+        const content = document.getElementById('post-content').value;
+        if (containsProfanity(title) || containsProfanity(content)) {
+            showCustomAlert("Karya Anda mengandung kata-kata yang tidak pantas. Mohon periksa kembali.", "Peringatan");
+            return;
+        }
         showLoading("Memublikasikan..."); 
         db.collection("posts").add({ 
-            title: document.getElementById('post-title').value, 
-            content: document.getElementById('post-content').value, 
+            title: title, 
+            content: content, 
             authorName: currentUserData.name, 
             authorId: currentUserData.uid, 
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
@@ -474,10 +582,16 @@
     }
 
     function handleUpdatePost(postId) {
+        const title = document.getElementById('post-title').value;
+        const content = document.getElementById('post-content').value;
+        if (containsProfanity(title) || containsProfanity(content)) {
+            showCustomAlert("Karya Anda mengandung kata-kata yang tidak pantas. Mohon periksa kembali.", "Peringatan");
+            return;
+        }
         showLoading("Memperbarui..."); 
         db.collection("posts").doc(postId).update({ 
-            title: document.getElementById('post-title').value, 
-            content: document.getElementById('post-content').value 
+            title: title, 
+            content: content
         }).then(() => { 
             modalContainer.innerHTML = '';
         }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading());
@@ -513,20 +627,21 @@
                 if (!postDoc.exists) throw "Karya tidak ada!";
 
                 const postData = postDoc.data();
+                const authorId = postData.authorId;
                 const likes = postData.likes || [];
-                let newLikes = [...likes];
-                let newLikeCount = postData.likeCount || 0;
-                let isLiked = newLikes.includes(currentUserData.uid);
+                let isLiked = likes.includes(currentUserData.uid);
 
                 if (isLiked) {
-                    newLikes = newLikes.filter(uid => uid !== currentUserData.uid);
-                    newLikeCount--;
+                    transaction.update(postRef, { 
+                        likes: firebase.firestore.FieldValue.arrayRemove(currentUserData.uid),
+                        likeCount: firebase.firestore.FieldValue.increment(-1)
+                    });
                 } else {
-                    newLikes.push(currentUserData.uid);
-                    newLikeCount++;
+                    transaction.update(postRef, { 
+                        likes: firebase.firestore.FieldValue.arrayUnion(currentUserData.uid),
+                        likeCount: firebase.firestore.FieldValue.increment(1)
+                    });
                 }
-                
-                transaction.update(postRef, { likes: newLikes, likeCount: newLikeCount });
             });
         } catch (error) {
             console.error("Gagal menyukai post:", error);
@@ -534,10 +649,13 @@
         }
     }
 
-    async function handleCreateComment(postId) {
+    async function handleCreateComment(postId, content) {
         if (!currentUserData) { auth.signOut(); return; }
-        const content = document.getElementById('comment-content').value;
         if (!content.trim()) return;
+        if (containsProfanity(content)) {
+            showCustomAlert("Komentar Anda mengandung kata-kata yang tidak pantas. Mohon periksa kembali.", "Peringatan");
+            return;
+        }
 
         showLoading("Mengirim komentar...");
         const postRef = db.collection("posts").doc(postId);
@@ -552,7 +670,6 @@
             });
 
             await postRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
-            document.getElementById('comment-content').value = '';
         } catch (error) {
             console.error("Gagal mengirim komentar:", error);
             showCustomAlert("Gagal mengirim komentar.", "Error");
@@ -560,7 +677,7 @@
             hideLoading();
         }
     }
-
+    
     function handleFollow(id){ 
         if (!currentUserData) { auth.signOut(); return; }
         showLoading("Mengikuti..."); 
