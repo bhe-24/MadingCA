@@ -4,9 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mading Komunitas - Cendekia Aksara</title>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+    <!-- Pindahkan script Firebase ke akhir body -->
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
         :root { --primary: #003366; --secondary: #005a9c; --accent: #f0f4f8; }
@@ -14,9 +12,12 @@
         .container { max-width: 900px; margin: 20px auto; padding: 20px; }
         .hidden { display: none !important; }
         .btn { padding: 10px 20px; border: none; border-radius: 8px; color: #fff; background-color: var(--secondary); font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+        .btn:hover { background-color: var(--primary); }
         .btn:disabled { background-color: #999; cursor: not-allowed; }
         .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
         .btn-secondary { background-color: #6c757d; }
+        .btn-secondary:hover { background-color: #5a6268; }
         .card { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); }
         .form-group { margin-bottom: 20px; }
         .form-group label { display: block; font-weight: 600; margin-bottom: 8px; }
@@ -26,6 +27,7 @@
         .mading-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; margin-top: 30px; }
         .post-card { position: relative; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.06); animation: fadeIn 0.5s; display: flex; flex-direction: column; }
         .post-card-clickable { flex-grow: 1; cursor: pointer; }
+        .series-card-clickable { flex-grow: 1; cursor: pointer; } /* Dibedakan untuk event handler */
         .post-card h3 { margin: 0 0 10px; color: var(--primary); }
         .post-card .meta { font-size: 0.8em; color: #6c757d; margin-bottom: 15px; }
         .post-card p { margin: 0; white-space: pre-wrap; line-height: 1.7; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
@@ -33,8 +35,8 @@
         .author-link { color: var(--secondary); text-decoration: none; font-weight: 600; cursor: pointer; }
         .author-link:hover { text-decoration: underline; }
         .post-actions { border-top: 1px solid #eee; margin-top: 15px; padding-top: 10px; font-size: 0.9em; color: #6c757d; display: flex; gap: 15px; }
-        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; }
-        .modal-content { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); width: 90%; max-width: 500px; animation: fadeIn 0.3s; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 1000; animation: fadeIn 0.3s; }
+        .modal-content { background: #fff; padding: 30px; border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.1); width: 90%; max-width: 500px; }
         .profile-header { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-bottom: 20px; text-align:center; }
         .profile-pic-large { width: 100px; height: 100px; border-radius: 50%; background-color: var(--primary); color: white; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 3em; background-size: cover; background-position: center; position: relative; border: 4px solid white; box-shadow: 0 4px 15px rgba(0,0,0,0.2);}
         .profile-stats { display: flex; gap: 20px; justify-content: center; }
@@ -65,6 +67,9 @@
         .comment-item { position: relative; background-color: var(--accent); padding: 15px; border-radius: 8px; margin-bottom: 10px; }
         .comment-item strong { color: var(--primary); }
         .comment-item p { margin: 5px 0 0; }
+        .replies-container { margin-left: 30px; margin-top: 10px; border-left: 2px solid #ddd; padding-left: 10px; }
+        .reply-btn { font-size: 0.9em; color: var(--secondary); cursor: pointer; font-weight: 600; margin-top: 5px; display: inline-block; }
+
         
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -78,46 +83,111 @@
             .header-actions { justify-content: flex-end; width: 100%; }
             #show-post-modal-btn { flex-grow: 1; text-align: center; }
             .header h2 { font-size: 1.2em; word-break: break-word; }
+            .modal-content { width: 100%; max-width: 100%; height: 100%; border-radius: 0; padding: 20px; box-sizing: border-box; }
+            .mading-wall { grid-template-columns: 1fr; }
+            .chapter-actions { /* Style tombol edit/hapus di mobile */
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+                justify-content: flex-end;
+            }
+            .chapter-actions button {
+                padding: 4px 8px;
+                font-size: 0.8em;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Kontainer Autentikasi -->
     <div id="auth-container" class="container card" style="max-width: 400px; margin-top: 5vh;">
-        <div id="login-view"><h1>Masuk ke Mading</h1><form id="login-form"><div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" required></div><div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" required></div><button type="submit" class="btn" style="width:100%;">Login</button><p style="text-align: center; margin-top: 15px; cursor: pointer; color: #005a9c;" id="show-register">Belum punya akun? Daftar di sini.</p></form></div>
-        <div id="register-view" class="hidden"><h1>Daftar Akun Baru</h1><form id="register-form"><div class="form-group"><label for="register-name">Nama Lengkap / Pena</label><input type="text" id="register-name" required></div><div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" required></div><div class="form-group"><label for="register-password">Password</label><input type="password" id="register-password" required></div><button type="submit" class="btn" style="width:100%;">Daftar</button><p style="text-align: center; margin-top: 15px; cursor: pointer; color: #005a9c;" id="show-login">Sudah punya akun? Masuk.</p></form></div>
+        <!-- Tampilan Login -->
+        <div id="login-view">
+            <h1>Masuk ke Mading</h1>
+            <form id="login-form">
+                <div class="form-group"><label for="login-email">Email</label><input type="email" id="login-email" required></div>
+                <div class="form-group"><label for="login-password">Password</label><input type="password" id="login-password" required></div>
+                <button type="submit" class="btn" style="width:100%;">Login</button>
+                <p style="text-align: center; margin-top: 15px; cursor: pointer; color: #005a9c;" id="show-register">Belum punya akun? Daftar di sini.</p>
+            </form>
+        </div>
+        <!-- Tampilan Daftar -->
+        <div id="register-view" class="hidden">
+            <h1>Daftar Akun Baru</h1>
+            <form id="register-form">
+                <div class="form-group"><label for="register-name">Nama Lengkap / Pena</label><input type="text" id="register-name" required></div>
+                <div class="form-group"><label for="register-email">Email</label><input type="email" id="register-email" required></div>
+                <div class="form-group"><label for="register-password">Password (min. 6 karakter)</label><input type="password" id="register-password" required></div>
+                <button type="submit" class="btn" style="width:100%;">Daftar</button>
+                <p style="text-align: center; margin-top: 15px; cursor: pointer; color: #005a9c;" id="show-login">Sudah punya akun? Masuk.</p>
+            </form>
+        </div>
     </div>
     
+    <!-- Kontainer Aplikasi Utama (setelah login) -->
     <div id="app-container" class="container hidden"></div>
+    
+    <!-- Kontainer Modal (untuk pop-up) -->
     <div id="modal-container"></div>
+    
+    <!-- Tombol Aksi Mengambang (FAB) -->
     <button id="lucky-draw-btn" class="fab" title="Karya Terbaik Minggu Ini">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h4v1.5c0 1.38 1.12 2.5 2.5 2.5s2.5-1.12 2.5-2.5V22h4c1.1 0 2-.9 2-2v-3.8h-1.5c-1.49 0-2.7-1.21-2.7-2.7s1.21-2.7 2.7-2.7H22V13c0-1.1-.9-2-2-2zm-9.5-2h-3V7h3v2zm0-3h-3V5h3v1.5zm3 3h-3V7h3v2zm0-3h-3V5h3v1.5z"/></svg>
     </button>
-    <a href="https://wa.me/628895615630" target="_blank" id="help-btn" class="fab" title="Butuh Bantuan?"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.23 1.056 4.411 2.899 6.001l.111.129-.755 2.726 2.735-.74z"/></svg></a>
+    <a href="https://wa.me/628895615630" target="_blank" id="help-btn" class="fab" title="Butuh Bantuan?">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.487 5.235 3.487 8.413.003 6.557-5.338 11.892-11.894 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.433-9.89-9.889-9.89-5.452 0-9.887 4.434-9.889 9.89.001 2.23 1.056 4.411 2.899 6.001l.111.129-.755 2.726 2.735-.74z"/></svg>
+    </a>
+    
+    <!-- Overlay Loading -->
     <div id="loading-overlay" class="hidden"><div class="progress-spinner"></div><p id="loading-text">Memuat...</p></div>
 
-<script>
-    const firebaseConfig = { apiKey: "AIzaSyDpUWUIzPXIZN6rrNtsIqcL6VfOE2RLVl0", authDomain: "mading-cf676.firebaseapp.com", projectId: "mading-cf676", storageBucket: "mading-cf676.firebasestorage.app", messagingSenderId: "72175203671", appId: "1:72175203671:web:7a0676a55beb64bc96ba12" };
+    <!-- Pindahkan Script Firebase ke sini -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
+<script>
+// Bungkus semua dalam DOMContentLoaded
+document.addEventListener('DOMContentLoaded', () => {
+
+    // Konfigurasi Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyDpUWUIzPXIZN6rrNtsIqcL6VfOE2RLVl0",
+        authDomain: "mading-cf676.firebaseapp.com",
+        projectId: "mading-cf676",
+        storageBucket: "mading-cf676.firebasestorage.app",
+        messagingSenderId: "72175203671",
+        appId: "1:72175203671:web:7a0676a55beb64bc96ba12"
+    };
+
+    // Inisialisasi Firebase (Sekarang aman karena script SDK sudah dimuat)
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
+    // Elemen DOM Utama
     const authContainer = document.getElementById('auth-container');
     const appContainer = document.getElementById('app-container');
     const modalContainer = document.getElementById('modal-container');
     const loadingOverlay = document.getElementById('loading-overlay');
     const loadingText = document.getElementById('loading-text');
     
+    // Variabel Listener
     let stopPostsListener = null;
     let stopViewListener = null;
     let stopUserListener = null;
     let currentUserData = null;
 
-    function showLoading(message) { loadingText.textContent = message; loadingOverlay.classList.remove('hidden'); }
-    function hideLoading() { loadingOverlay.classList.add('hidden'); }
-    
-    document.getElementById('show-register').onclick = () => { document.getElementById('login-view').classList.add('hidden'); document.getElementById('register-view').classList.remove('hidden'); };
-    document.getElementById('show-login').onclick = () => { document.getElementById('register-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); };
+    // --- FUNGSI UTILITAS ---
+
+    function showLoading(message) {
+        // Cek jika elemen ada sebelum menggunakannya
+        if (loadingText) loadingText.textContent = message;
+        if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+    }
+    function hideLoading() {
+        if (loadingOverlay) loadingOverlay.classList.add('hidden');
+    }
     
     function renderModal(title, message, buttons) {
         const buttonsHTML = buttons.map(btn => `<button class="btn ${btn.className || ''}" id="${btn.id}">${btn.text}</button>`).join('');
@@ -126,14 +196,18 @@
 
     function showCustomAlert(message, title = 'Informasi') {
         renderModal(title, message, [{id: 'modal-ok-btn', text: 'OK', className: 'btn-secondary'}]);
-        document.getElementById('modal-ok-btn').onclick = () => { modalContainer.innerHTML = ''; };
+        // Pastikan tombol ada sebelum menambahkan event listener
+        const okBtn = document.getElementById('modal-ok-btn');
+        if (okBtn) okBtn.onclick = () => { modalContainer.innerHTML = ''; };
     }
 
     function showCustomConfirm(message, title = 'Konfirmasi') {
         return new Promise(resolve => {
             renderModal(title, message, [{id: 'modal-cancel-btn', text: 'Batal', className: 'btn-secondary'}, {id: 'modal-confirm-btn', text: 'Hapus', className: 'btn-danger'}]);
-            document.getElementById('modal-confirm-btn').onclick = () => { modalContainer.innerHTML = ''; resolve(true); };
-            document.getElementById('modal-cancel-btn').onclick = () => { modalContainer.innerHTML = ''; resolve(false); };
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            if (confirmBtn) confirmBtn.onclick = () => { modalContainer.innerHTML = ''; resolve(true); };
+            if (cancelBtn) cancelBtn.onclick = () => { modalContainer.innerHTML = ''; resolve(false); };
         });
     }
 
@@ -143,6 +217,9 @@
         if (stopUserListener) { stopUserListener(); stopUserListener = null; }
     }
 
+
+    // --- FUNGSI AUTENTIKASI & NAVIGASI UTAMA ---
+
     auth.onAuthStateChanged(user => {
         showLoading('Mengecek sesi...');
         cleanupListeners();
@@ -151,23 +228,43 @@
                 if(doc.exists) {
                     const wasNull = currentUserData === null;
                     currentUserData = { uid: user.uid, ...doc.data() };
-                    if (wasNull || !document.getElementById('mading-view') || document.getElementById('auth-container')) {
+                    
+                    if (wasNull || !document.getElementById('mading-view') || document.getElementById('auth-container').offsetParent !== null ) { // Cek visibilitas auth-container
                          renderDashboard();
                     } else if (document.getElementById('profile-view')) {
-                        updateFollowButton();
+                        const profileId = document.getElementById('profile-view').dataset.authorId;
+                        if (profileId) {
+                            updateFollowButton(profileId, (currentUserData.following || []).includes(profileId));
+                        }
                     }
                     hideLoading();
-                } else { auth.signOut(); }
+                } else { 
+                    console.error("Login gagal: Dokumen pengguna tidak ditemukan di Firestore.");
+                    auth.signOut();
+                    showCustomAlert("Login gagal: Data pengguna Anda tidak ditemukan. Silakan mendaftar.", "Error");
+                    hideLoading();
+                } 
             }, err => { console.error(err); auth.signOut(); hideLoading(); });
         } else {
             currentUserData = null;
             authContainer.classList.remove('hidden');
             appContainer.classList.add('hidden');
+            appContainer.innerHTML = '';
             hideLoading();
         }
     });
 
+    // Pindahkan listener ini ke dalam DOMContentLoaded
+    const showRegisterBtn = document.getElementById('show-register');
+    const showLoginBtn = document.getElementById('show-login');
+    if (showRegisterBtn) showRegisterBtn.onclick = () => { document.getElementById('login-view').classList.add('hidden'); document.getElementById('register-view').classList.remove('hidden'); };
+    if (showLoginBtn) showLoginBtn.onclick = () => { document.getElementById('register-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); };
+
+
+    // --- FUNGSI RENDER TAMPILAN (VIEWS) ---
+    // (renderDashboard, fetchAndRenderPosts, renderPosts, renderPostDetailPage, renderProfilePage, renderSearchView, renderEditProfilePage tetap sama)
     function renderDashboard() {
+        // ... (fungsi renderDashboard utuh) ...
         cleanupListeners();
         authContainer.classList.add('hidden');
         appContainer.classList.remove('hidden');
@@ -190,31 +287,39 @@
                 </div>
                 <div id="mading-wall" class="mading-wall"></div>
             </div>`;
+            
+        // Setup event listener untuk tombol di dashboard
         document.getElementById('profile-bubble').onclick = () => renderProfilePage(currentUserData.uid);
         document.getElementById('logout-btn').onclick = () => auth.signOut();
         document.getElementById('show-post-modal-btn').onclick = () => renderPostModal('create');
         document.getElementById('search-btn').onclick = renderSearchView;
         document.getElementById('lucky-draw-btn').onclick = handleFindBestWork;
-        fetchAndRenderPosts();
+        
+        fetchAndRenderPosts(); // Memuat semua karya
     }
 
     function fetchAndRenderPosts() {
+        // ... (fungsi fetchAndRenderPosts utuh) ...
         if (stopPostsListener) { stopPostsListener(); stopPostsListener = null; }
         const madingWall = document.getElementById('mading-wall');
         if (!madingWall) return;
         madingWall.innerHTML = '<p>Memuat beranda...</p>';
         
+        // Listener realtime ke koleksi 'posts'
         stopPostsListener = db.collection("posts").orderBy("timestamp", "desc").onSnapshot(querySnapshot => {
             if (!document.getElementById('mading-wall') || !currentUserData) return;
             const allPosts = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             const following = currentUserData.following || [];
             
             madingWall.innerHTML = '';
+            
+            // Logika untuk memisahkan 'Following' dan 'Explore'
             if (following.length === 0) {
+                // Jika tidak follow siapa-siapa, tampilkan semua
                 renderPosts(allPosts);
             } else {
                 const followedPosts = allPosts.filter(p => following.includes(p.authorId));
-                const topFollowedPosts = followedPosts.slice(0, 2);
+                const topFollowedPosts = followedPosts.slice(0, 2); // Ambil 2 terbaru
                 const followedPostIds = new Set(topFollowedPosts.map(p => p.id));
                 const filteredPublicPosts = allPosts.filter(p => !followedPostIds.has(p.id));
 
@@ -223,7 +328,7 @@
                     followedHeader.style.gridColumn = '1 / -1';
                     followedHeader.innerHTML = `<h2 style="font-size: 1.5em; color: var(--primary); margin-bottom: 0;">Karya dari yang Anda ikuti</h2>`;
                     madingWall.appendChild(followedHeader);
-                    renderPosts(topFollowedPosts, true);
+                    renderPosts(topFollowedPosts, true); // Append
                 }
 
                 const publicHeader = document.createElement('div');
@@ -233,7 +338,7 @@
                 madingWall.appendChild(publicHeader);
                 
                 if (filteredPublicPosts.length > 0) {
-                    renderPosts(filteredPublicPosts, true);
+                    renderPosts(filteredPublicPosts, true); // Append
                 } else {
                     madingWall.innerHTML += '<p>Tidak ada karya lain untuk dijelajahi saat ini.</p>';
                 }
@@ -245,6 +350,7 @@
     }
     
     function renderPosts(posts, append = false) {
+        // ... (fungsi renderPosts utuh) ...
         const wallId = document.getElementById('profile-wall') ? 'profile-wall' : 'mading-wall';
         const wall = document.getElementById(wallId);
         if(!wall) return;
@@ -259,19 +365,39 @@
             postCard.className = 'post-card';
             const postDate = post.timestamp ? post.timestamp.toDate().toLocaleString('id-ID') : 'Baru saja';
             let menuButton = '';
+            let postTypeBadge = '';
+            let clickableElement = '';
+            let postStats = '';
+
+            // Membedakan UI berdasarkan Tipe Post (Single vs Series)
+            if (post.postType === 'series') {
+                postTypeBadge = `<span style="font-size: 0.8em; background: var(--primary); color: white; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 10px;">Seri</span>`;
+                clickableElement = `<div class="series-card-clickable" data-series-id="${post.id}">`; // Atribut data untuk seri
+                postStats = `<span>📘 ${post.chapterCount || 0} Bab</span>`;
+            } else {
+                // Post tunggal (default)
+                clickableElement = `<div class="post-card-clickable" data-post-id="${post.id}">`; // Atribut data untuk post
+                postStats = `
+                    <span>❤️ ${post.likeCount || 0} Suka</span>
+                    <span>💬 ${post.commentCount || 0} Komentar</span>
+                `;
+            }
+
+            // Tombol edit/hapus jika milik sendiri
             if (currentUserData && currentUserData.uid === post.authorId) {
                 menuButton = `<div class="post-menu"><button class="post-menu-btn" data-menu-id="${post.id}">&#8942;</button><div id="menu-${post.id}" class="dropdown-menu"><a href="#" class="edit-btn" data-post-id="${post.id}">Edit</a><a href="#" class="delete-btn" data-post-id="${post.id}">Hapus</a></div></div>`;
             }
+            
             postCard.innerHTML = `
                 ${menuButton}
-                <div class="post-card-clickable" data-post-id="${post.id}">
+                ${clickableElement}
+                    ${postTypeBadge}
                     <h3>${post.title}</h3>
                     <p class="meta">${postDate}</p>
-                    <p>${post.content}</p>
+                    <p>${post.content || post.description || ''}</p>
                 </div>
                 <div class="post-actions">
-                    <span>❤️ ${post.likeCount || 0} Suka</span>
-                    <span>💬 ${post.commentCount || 0} Komentar</span>
+                    ${postStats}
                 </div>
                 <p class="author">oleh: <a href="#" class="author-link" data-author-id="${post.authorId}">${post.authorName}</a></p>
             `;
@@ -280,94 +406,115 @@
     }
 
     function renderPostDetailPage(postId) {
+        // ... (fungsi renderPostDetailPage utuh) ...
         cleanupListeners();
         showLoading("Memuat karya...");
 
-        stopViewListener = db.collection("posts").doc(postId).onSnapshot(async (postDoc) => {
-            if (!document.getElementById('app-container')) return; 
-            if (!postDoc.exists) {
+        // Cek dulu apakah ini post 'series' atau 'single'
+        db.collection("posts").doc(postId).get().then(postCheckDoc => {
+            if (!postCheckDoc.exists) {
                 showCustomAlert("Karya tidak ditemukan atau telah dihapus.", "Error");
                 renderDashboard();
                 return;
             }
-            const postData = { id: postDoc.id, ...postDoc.data() };
-            
-            const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
-            let comments = [];
-            commentsSnapshot.forEach(doc => comments.push({id: doc.id, ...doc.data()}));
-            comments.sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
-
-            const isLiked = currentUserData && postData.likes && postData.likes.includes(currentUserData.uid);
-            
-            appContainer.innerHTML = `
-                <div id="post-detail-view" class="card" data-post-id="${postData.id}">
-                    <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
-                    <h1>${postData.title}</h1>
-                    <p class="meta">oleh <a href="#" class="author-link" data-author-id="${postData.authorId}">${postData.authorName}</a> pada ${postData.timestamp ? postData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
-                    <p style="white-space: pre-wrap; line-height: 1.8;">${postData.content}</p>
-                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
-                        <button id="like-btn" class="like-btn ${isLiked ? 'liked' : ''}">
-                           ❤️ <span id="like-count">${postData.likeCount || 0}</span> Suka
-                        </button>
-                    </div>
-                    <div class="comment-section">
-                        <h3>Komentar (${postData.commentCount || 0})</h3>
-                        <form id="comment-form" class="form-group">
-                            <textarea id="comment-content" rows="3" placeholder="Tulis komentar Anda..." required></textarea>
-                            <button type="submit" class="btn" style="margin-top:10px;">Kirim</button>
-                        </form>
-                        <ul id="comment-list" class="comment-list"></ul>
-                    </div>
-                </div>`;
-
-            const commentList = document.getElementById('comment-list');
-            commentList.innerHTML = '';
-            const commentsByParent = comments.reduce((acc, comment) => {
-                const parentId = comment.parentId || 'root';
-                if (!acc[parentId]) acc[parentId] = [];
-                acc[parentId].push(comment);
-                return acc;
-            }, {});
-
-            const renderCommentTree = (parentId, container) => {
-                if (!commentsByParent[parentId]) return;
-                commentsByParent[parentId].forEach(comment => {
-                    let menuButton = '';
-                    if (currentUserData && currentUserData.uid === comment.authorId) {
-                        menuButton = `<div class="post-menu"><button class="post-menu-btn" data-menu-id="comment-${comment.id}">&#8942;</button><div id="menu-comment-${comment.id}" class="dropdown-menu"><a href="#" class="edit-comment-btn" data-comment-id="${comment.id}">Edit</a><a href="#" class="delete-comment-btn" data-comment-id="${comment.id}">Hapus</a></div></div>`;
-                    }
-                    const li = document.createElement('li');
-                    li.className = 'comment-item';
-                    li.innerHTML = `
-                        ${menuButton}
-                        <strong>${comment.authorName}</strong>
-                        <p>${comment.content}</p>
-                        <div class="reply-btn" data-comment-id="${comment.id}">Balas</div>
-                    `;
-                    container.appendChild(li);
-                    
-                    const repliesContainer = document.createElement('div');
-                    repliesContainer.className = 'replies-container';
-                    li.appendChild(repliesContainer);
-                    renderCommentTree(comment.id, repliesContainer);
-                });
-            };
-
-            if(comments.length > 0) {
-                renderCommentTree('root', commentList);
-            } else {
-                commentList.innerHTML = '<p>Jadilah yang pertama berkomentar!</p>';
+            // Jika ini adalah 'series', alihkan ke halaman detail seri
+            if (postCheckDoc.data().postType === 'series') {
+                renderSeriesDetailPage(postId);
+                return;
             }
-            document.getElementById('back-to-mading-btn').onclick = renderDashboard;
-            hideLoading();
-        }, error => {
-            console.error("Gagal membuka detail karya:", error);
-            showCustomAlert("Gagal membuka detail karya.", "Error");
-            renderDashboard();
-        });
+
+            // Lanjutkan memuat detail post tunggal
+            stopViewListener = db.collection("posts").doc(postId).onSnapshot(async (postDoc) => {
+                if (!document.getElementById('app-container')) return; 
+                
+                if (!postDoc.exists) {
+                    showCustomAlert("Karya tidak ditemukan atau telah dihapus.", "Error");
+                    renderDashboard();
+                    return;
+                }
+                const postData = { id: postDoc.id, ...postDoc.data() };
+                
+                // Ambil komentar
+                const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
+                let comments = [];
+                commentsSnapshot.forEach(doc => comments.push({id: doc.id, ...doc.data()}));
+                comments.sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
+
+                const isLiked = currentUserData && postData.likes && postData.likes.includes(currentUserData.uid);
+
+                appContainer.innerHTML = `
+                    <div id="post-detail-view" class="card" data-post-id="${postData.id}">
+                        <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
+                        <h1>${postData.title}</h1>
+                        <p class="meta">oleh <a href="#" class="author-link" data-author-id="${postData.authorId}">${postData.authorName}</a> pada ${postData.timestamp ? postData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
+                        <p style="white-space: pre-wrap; line-height: 1.8;">${postData.content}</p>
+                        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                            <button id="like-btn" class="like-btn ${isLiked ? 'liked' : ''}">
+                                ❤️ <span id="like-count">${postData.likeCount || 0}</span> Suka
+                            </button>
+                        </div>
+                        <div class="comment-section">
+                            <h3>Komentar (${postData.commentCount || 0})</h3>
+                            <form id="comment-form" class="form-group">
+                                <textarea id="comment-content" rows="3" placeholder="Tulis komentar Anda..." required></textarea>
+                                <button type="submit" class="btn" style="margin-top:10px;">Kirim</button>
+                            </form>
+                            <ul id="comment-list" class="comment-list"></ul>
+                        </div>
+                    </div>`;
+
+                const commentList = document.getElementById('comment-list');
+                commentList.innerHTML = '';
+                // Mengelompokkan komentar berdasarkan parentId
+                const commentsByParent = comments.reduce((acc, comment) => {
+                    const parentId = comment.parentId || 'root';
+                    if (!acc[parentId]) acc[parentId] = [];
+                    acc[parentId].push(comment);
+                    return acc;
+                }, {});
+
+                // Fungsi rekursif untuk render komentar berbalas
+                const renderCommentTree = (parentId, container) => {
+                    if (!commentsByParent[parentId]) return;
+                    commentsByParent[parentId].forEach(comment => {
+                        let menuButton = '';
+                        if (currentUserData && currentUserData.uid === comment.authorId) {
+                            menuButton = `<div class="post-menu"><button class="post-menu-btn" data-menu-id="comment-${comment.id}">&#8942;</button><div id="menu-comment-${comment.id}" class="dropdown-menu"><a href="#" class="edit-comment-btn" data-comment-id="${comment.id}">Edit</a><a href="#" class="delete-comment-btn" data-comment-id="${comment.id}">Hapus</a></div></div>`;
+                        }
+                        const li = document.createElement('li');
+                        li.className = 'comment-item';
+                        li.innerHTML = `
+                            ${menuButton}
+                            <strong>${comment.authorName}</strong>
+                            <p>${comment.content}</p>
+                            <div class="reply-btn" data-comment-id="${comment.id}">Balas</div>
+                        `;
+                        container.appendChild(li);
+                        
+                        const repliesContainer = document.createElement('div');
+                        repliesContainer.className = 'replies-container';
+                        li.appendChild(repliesContainer);
+                        renderCommentTree(comment.id, repliesContainer); // Rekursi
+                    });
+                };
+
+                if(comments.length > 0) {
+                    renderCommentTree('root', commentList);
+                } else {
+                    commentList.innerHTML = '<p>Jadilah yang pertama berkomentar!</p>';
+                }
+                document.getElementById('back-to-mading-btn').onclick = renderDashboard;
+                hideLoading();
+            }, error => {
+                console.error("Gagal membuka detail karya:", error);
+                showCustomAlert("Gagal membuka detail karya.", "Error");
+                renderDashboard();
+            });
+        }); 
     }
 
     function renderProfilePage(authorId) {
+        // ... (fungsi renderProfilePage utuh) ...
         cleanupListeners();
         showLoading("Memuat profil...");
         
@@ -381,6 +528,7 @@
 
             const userData = userDoc.data();
             
+            // Render kerangka profil hanya jika belum ada
             if (!document.getElementById('profile-view')) {
                 let editButtonHTML = '';
                 if(currentUserData && currentUserData.uid === authorId) {
@@ -392,6 +540,8 @@
                 if(editButtonHTML) {
                     document.getElementById('edit-profile-btn').onclick = renderEditProfilePage;
                 }
+                
+                // Ambil karya penulis (hanya saat load pertama)
                 const postsSnapshot = await db.collection("posts").where("authorId", "==", authorId).get();
                 let posts = [];
                 postsSnapshot.forEach(doc => posts.push({ id: doc.id, ...doc.data() }));
@@ -399,29 +549,25 @@
                 renderPosts(posts, false);
             }
             
+            // Update data profil (statistik) secara realtime
             document.getElementById('profile-name').textContent = userData.name;
             document.getElementById('profile-pic-large').textContent = userData.name.charAt(0).toUpperCase();
             document.getElementById('karya-count').textContent = userData.karyaCount || 0;
             document.getElementById('followers-count').textContent = (userData.followers || []).length;
             document.getElementById('following-count').textContent = (userData.following || []).length;
             
+            // Tampilkan badge 'Verified'
             const badgeContainer = document.getElementById('badge-container');
-            if (userData.name === "Cendekia Aksara") {
+            if (userData.name === "Cendekia Aksara") { // Ganti dengan logic verifikasi
                 badgeContainer.innerHTML = `<svg title="Akun Resmi" class="verified-badge" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>`;
             } else {
                  badgeContainer.innerHTML = '';
             }
             
+            // Tampilkan tombol Follow/Unfollow
             if (currentUserData && currentUserData.uid !== authorId) {
                 const isFollowing = (currentUserData.following || []).includes(authorId);
-                const followBtnContainer = document.getElementById('follow-btn-container');
-                if (followBtnContainer) {
-                    if (isFollowing) {
-                        followBtnContainer.innerHTML = `<button id="unfollow-btn" class="btn btn-secondary" style="width:100%;">Unfollow</button>`;
-                    } else {
-                        followBtnContainer.innerHTML = `<button id="follow-btn" class="btn" style="width:100%;">Follow</button>`;
-                    }
-                }
+                updateFollowButton(authorId, isFollowing);
             } else {
                  const followBtnContainer = document.getElementById('follow-btn-container');
                  if(followBtnContainer) followBtnContainer.innerHTML = '';
@@ -435,6 +581,7 @@
     }
 
     async function renderSearchView() {
+        // ... (fungsi renderSearchView utuh) ...
         cleanupListeners();
         appContainer.innerHTML = `
             <div id="search-view" class="card">
@@ -450,6 +597,7 @@
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
         
+        // Ambil semua data (bisa jadi berat jika data besar, alternatifnya pakai Algolia/Elasticsearch)
         showLoading("Menyiapkan pencarian...");
         const [postsSnapshot, usersSnapshot] = await Promise.all([
             db.collection("posts").get(),
@@ -486,9 +634,15 @@
                 searchResults.innerHTML += '<h3 style="margin-top:20px;">Karya Ditemukan</h3>';
                 matchingPosts.forEach(post => {
                     const item = document.createElement('div');
-                    item.className = 'search-result-item post-card-clickable';
+                    // Menggunakan data-post-id untuk post tunggal, data-series-id untuk seri
+                    if (post.postType === 'series') {
+                        item.className = 'search-result-item series-card-clickable';
+                        item.dataset.seriesId = post.id;
+                    } else {
+                        item.className = 'search-result-item post-card-clickable';
+                        item.dataset.postId = post.id;
+                    }
                     item.innerHTML = `<strong>${post.title}</strong><br><small>oleh: ${post.authorName}</small>`;
-                    item.dataset.postId = post.id;
                     searchResults.appendChild(item);
                 });
             }
@@ -499,37 +653,8 @@
         };
     }
 
-    function renderChatRoom() {
-        cleanupListeners();
-        appContainer.innerHTML = `
-            <div id="chat-view" class="card">
-                <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
-                <h2>Ruang Obrolan</h2>
-                <div id="chat-messages"></div>
-                <form id="chat-form" class="form-group">
-                    <textarea id="chat-input" rows="2" placeholder="Ketik pesan Anda..." required></textarea>
-                    <button type="submit" class="btn" style="margin-top:10px;">Kirim</button>
-                </form>
-            </div>
-        `;
-        document.getElementById('back-to-mading-btn').onclick = renderDashboard;
-
-        const chatMessages = document.getElementById('chat-messages');
-        stopViewListener = db.collection("chat_messages").orderBy("timestamp", "asc").limitToLast(50)
-            .onSnapshot(snapshot => {
-                chatMessages.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const msg = doc.data();
-                    const msgDiv = document.createElement('div');
-                    msgDiv.className = 'chat-message';
-                    msgDiv.innerHTML = `<small>${msg.authorName}</small><p>${msg.content}</p>`;
-                    chatMessages.appendChild(msgDiv);
-                });
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            });
-    }
-
     function renderEditProfilePage() {
+        // ... (fungsi renderEditProfilePage utuh) ...
         cleanupListeners();
         appContainer.innerHTML = `
             <div id="edit-profile-view" class="card">
@@ -547,7 +672,7 @@
                     <h3>Ubah Kata Sandi</h3>
                     <div class="form-group">
                         <label for="new-password">Kata Sandi Baru</label>
-                        <input type="password" id="new-password" required>
+                        <input type="password" id="new-password" required placeholder="Minimal 6 karakter">
                     </div>
                     <button type="submit" class="btn">Ubah Kata Sandi</button>
                 </form>
@@ -559,49 +684,137 @@
         document.getElementById('back-to-profile-btn').onclick = () => renderProfilePage(currentUserData.uid);
     }
     
+    // --- EVENT DELEGATION ---
+    
     document.addEventListener('click', (e) => {
+        // ... (event delegation logic remains the same, including chapter edit/delete handlers) ...
         const target = e.target;
         
-        if (target.closest('.post-card-clickable')) { renderPostDetailPage(target.closest('.post-card-clickable').dataset.postId); }
+        // Klik pada Post Tunggal
+        if (target.closest('.post-card-clickable[data-post-id]')) { 
+            const postId = target.closest('.post-card-clickable[data-post-id]').dataset.postId;
+            if (postId) renderPostDetailPage(postId); 
+        }
+        // Klik pada Post Seri
+        if (target.closest('.series-card-clickable[data-series-id]')) { 
+            const seriesId = target.closest('.series-card-clickable[data-series-id]').dataset.seriesId;
+            if (seriesId) renderSeriesDetailPage(seriesId); 
+        }
+        // Klik pada Bab (di daftar bab)
+        // --- PERBAIKAN: Target klik diubah ke .chapter-link ---
+        if (target.closest('.chapter-link[data-chapter-id]')) { 
+            const chapterId = target.closest('.chapter-link[data-chapter-id]').dataset.chapterId;
+            if (chapterId) renderChapterDetailPage(chapterId); 
+        }
+        if (target.closest('li[data-chapter-id] .chapter-link')) {
+            const chapterId = target.closest('li[data-chapter-id]').dataset.chapterId;
+            if (chapterId) renderChapterDetailPage(chapterId);
+        }
+        // Klik pada nama penulis
         if (target.closest('.author-link')) { e.preventDefault(); renderProfilePage(target.closest('.author-link').dataset.authorId); }
 
+        // Like Post Tunggal
         if (target.closest('#like-btn')) { 
             const postId = document.getElementById('post-detail-view')?.dataset.postId;
             if (postId) handleLikePost(postId);
         }
+
+        // Like Bab
+        if (target.closest('#like-chapter-btn')) { 
+            const chapterId = document.getElementById('chapter-detail-view')?.dataset.chapterId;
+            if (chapterId) handleLikeChapter(chapterId);
+        }
         
+        // ... (sisa event delegation: comment forms, reply, add chapter, follow, etc) ...
+        // Form Komentar Post Tunggal
         const commentForm = target.closest('#comment-form');
         if (commentForm) {
              commentForm.onsubmit = (event) => {
-                event.preventDefault();
-                const postId = document.getElementById('post-detail-view')?.dataset.postId;
-                if (postId) handleCreateComment(postId, document.getElementById('comment-content').value);
-            }
+                 event.preventDefault();
+                 const postId = document.getElementById('post-detail-view')?.dataset.postId;
+                 if (postId) handleCreateComment(postId, document.getElementById('comment-content').value);
+             }
+        }
+
+        // Form Komentar Bab
+        const chapterCommentForm = target.closest('#chapter-comment-form');
+        if (chapterCommentForm) {
+             chapterCommentForm.onsubmit = (event) => {
+                 event.preventDefault();
+                 const chapterId = document.getElementById('chapter-detail-view')?.dataset.chapterId;
+                 if (chapterId) handleCreateChapterComment(chapterId, document.getElementById('chapter-comment-content').value);
+             }
         }
         
+        // Tombol Balas Komentar
         const replyBtn = target.closest('.reply-btn');
         if (replyBtn) {
             const commentId = replyBtn.dataset.commentId;
             const existingForm = replyBtn.parentElement.querySelector('form');
             if (existingForm) {
-                existingForm.remove();
+                existingForm.remove(); // Tutup jika diklik lagi
             } else {
-                document.querySelectorAll('.reply-btn + form').forEach(f => f.remove());
+                document.querySelectorAll('.reply-btn + form').forEach(f => f.remove()); // Tutup form balasan lain
                 const replyForm = document.createElement('form');
                 replyForm.className = 'form-group';
-                replyForm.style.marginLeft = '30px';
+                replyForm.style.marginTop = '10px';
                 replyForm.innerHTML = `<textarea rows="2" placeholder="Balas komentar..." required></textarea><button type="submit" class="btn" style="font-size: 0.8em; padding: 5px 10px; margin-top: 5px;">Kirim Balasan</button>`;
+                
                 replyForm.onsubmit = (event) => {
                     event.preventDefault();
-                    const postId = document.getElementById('post-detail-view')?.dataset.postId;
                     const content = replyForm.querySelector('textarea').value;
-                    if(postId) handleCreateComment(postId, content, commentId);
-                };
+                    
+                    // Cek apakah kita di halaman detail post
+                    const postDetailView = document.getElementById('post-detail-view');
+                    if (postDetailView) {
+                        const postId = postDetailView.dataset.postId;
+                        handleCreateComment(postId, content, commentId); // Kirim balasan ke post
+                        return;
+                    }
+                    
+                    // Cek apakah kita di halaman detail chapter
+                    const chapterDetailView = document.getElementById('chapter-detail-view');
+                    if (chapterDetailView) {
+                        const chapterId = chapterDetailView.dataset.chapterId;
+                        handleCreateChapterComment(chapterId, content, commentId); // Kirim balasan ke chapter
+                        return;
+                    }
+                }; 
                 replyBtn.parentElement.appendChild(replyForm);
                 replyForm.querySelector('textarea').focus();
             }
         }
 
+        // Tombol Tambah Bab (di halaman detail seri)
+        if (target.closest('#add-chapter-btn')) {
+            const seriesId = target.closest('#add-chapter-btn').dataset.seriesId;
+            if (seriesId) renderChapterModal('create', seriesId);
+        }
+
+        // --- HANDLER BARU: Tombol Edit/Hapus Bab ---
+        const editChapterBtn = target.closest('.edit-chapter-btn');
+        if(editChapterBtn) {
+            e.preventDefault();
+            const chapterId = editChapterBtn.dataset.chapterId;
+            showLoading("Memuat data bab...");
+            db.collection("chapters").doc(chapterId).get().then(doc => {
+                if (doc.exists) {
+                    const data = doc.data();
+                    renderChapterModal('edit', data.seriesId, data, chapterId);
+                } else {
+                    showCustomAlert("Bab tidak ditemukan.", "Error");
+                }
+            }).finally(() => hideLoading());
+        }
+
+        const deleteChapterBtn = target.closest('.delete-chapter-btn');
+        if(deleteChapterBtn) {
+            e.preventDefault();
+            handleDeleteChapter(deleteChapterBtn.dataset.chapterId);
+        }
+        // --- AKHIR HANDLER BARU ---
+
+        // Tombol Follow/Unfollow
         if (target.closest('#follow-btn')) {
             const authorId = document.getElementById('profile-view')?.dataset.authorId;
             if (authorId) handleFollow(authorId);
@@ -611,37 +824,34 @@
             if (authorId) handleUnfollow(authorId);
         }
         
-        if(target.closest('#chat-form button[type="submit"]')) {
-            e.preventDefault();
-            handleSendChatMessage();
-        }
-
+        // Handler untuk Halaman Edit Profil
         if(target.closest('#update-name-form button[type="submit"]')) {
             e.preventDefault();
             handleUpdateName();
         }
-        
         if(target.closest('#update-password-form button[type="submit"]')) {
             e.preventDefault();
             handleChangePassword();
         }
-
         if(target.closest('#delete-account-btn')) {
             handleDeleteAccount();
         }
 
-
+        // Logika dropdown menu (Edit/Delete)
         const menuBtn = target.closest('.post-menu-btn');
         if (menuBtn) {
+            // Tutup semua menu lain
             document.querySelectorAll('.dropdown-menu').forEach(m => {
                 if(m.id !== `menu-${menuBtn.dataset.menuId}`) m.style.display = 'none'
             });
             const menu = document.getElementById(`menu-${menuBtn.dataset.menuId}`);
             menu.style.display = menu.style.display === 'block' ? 'none' : 'block';
         } else if (!target.closest('.dropdown-menu')) {
+             // Klik di luar menu akan menutup semua menu
              document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
         }
         
+        // Handler tombol di dalam dropdown
         const editBtn = target.closest('.edit-btn');
         if (editBtn) { 
             e.preventDefault(); 
@@ -651,28 +861,43 @@
         const deleteBtn = target.closest('.delete-btn');
         if (deleteBtn) { e.preventDefault(); handleDeletePost(deleteBtn.dataset.postId); }
 
+        // Handler Edit/Delete Komentar Post Tunggal
         const editCommentBtn = target.closest('.edit-comment-btn');
         if(editCommentBtn) { e.preventDefault(); handleEditComment(editCommentBtn.dataset.commentId); }
         const deleteCommentBtn = target.closest('.delete-comment-btn');
         if(deleteCommentBtn) { e.preventDefault(); handleDeleteComment(deleteCommentBtn.dataset.commentId); }
+
+        // Handler untuk Edit/Delete Komentar Bab
+        const editChapterCommentBtn = target.closest('.edit-chapter-comment-btn');
+        if(editChapterCommentBtn) { e.preventDefault(); handleEditChapterComment(editChapterCommentBtn.dataset.commentId); }
+        const deleteChapterCommentBtn = target.closest('.delete-chapter-comment-btn');
+        if(deleteChapterCommentBtn) { e.preventDefault(); handleDeleteChapterComment(deleteChapterCommentBtn.dataset.commentId); }
     });
     
-    document.getElementById('register-form').addEventListener('submit', (e) => { 
+    // --- HANDLER FORM ---
+
+    const registerForm = document.getElementById('register-form');
+    if (registerForm) registerForm.addEventListener('submit', (e) => { 
+        // ... (fungsi register-form utuh) ...
         e.preventDefault(); 
         showLoading("Membuat akun..."); 
         const name = document.getElementById('register-name').value; 
         const email = document.getElementById('register-email').value; 
         const password = document.getElementById('register-password').value; 
         auth.createUserWithEmailAndPassword(email, password).then((cred) => { 
+            // Buat dokumen user di Firestore
             return db.collection("users").doc(cred.user.uid).set({ name: name, email: email, karyaCount: 0, followers: [], following: [] }); 
         }).then(() => { 
             showCustomAlert("Akun berhasil dibuat! Silakan login.", "Sukses"); 
-            document.getElementById('show-login').click(); 
+            const showLoginBtn = document.getElementById('show-login'); // Cari tombol lagi
+            if(showLoginBtn) showLoginBtn.click(); 
             e.target.reset(); 
-        }).catch((error) => showCustomAlert(error.message, "Error")).finally(()=>hideLoading()); 
+        }).catch((error) => showCustomAlert(error.message, "Error")).finally(()=>hideLoading());
     });
     
-    document.getElementById('login-form').addEventListener('submit', (e) => { 
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) loginForm.addEventListener('submit', (e) => { 
+        // ... (fungsi login-form utuh) ...
         e.preventDefault(); 
         showLoading("Mencoba masuk..."); 
         const email = document.getElementById('login-email').value; 
@@ -683,53 +908,163 @@
         }); 
     });
     
+    // --- FUNGSI CRUD POST ---
+    
     function renderPostModal(mode, postData = {}, postId = '') {
+        // ... (fungsi renderPostModal utuh) ...
         const isEdit = mode === 'edit';
-        modalContainer.innerHTML = `<div id="post-modal" class="modal"><div class="modal-content"><h2>${isEdit ? 'Edit Karya' : 'Kirim Karya Baru'}</h2><form id="post-form"><div class="form-group"><label for="post-title">Judul Karya</label><input type="text" id="post-title" value="${postData.title || ''}" required></div><div class="form-group"><label for="post-content">Isi Karya</label><textarea id="post-content" rows="8" required>${postData.content || ''}</textarea></div><div style="display:flex; gap:10px; margin-top:20px;"><button type="button" id="close-post-modal-btn" class="btn btn-secondary">Batal</button><button type="submit" class="btn" style="flex-grow:1;">${isEdit ? 'Simpan Perubahan' : 'Publikasikan'}</button></div></form></div></div>`;
+        // Jangan tampilkan pilihan tipe jika sedang mengedit
+        const postTypeSelection = isEdit ? '' : `
+            <div class="form-group" style="display:flex; gap: 20px;">
+                <label><input type="radio" name="postType" value="single" checked> Tulisan Tunggal</label>
+                <label><input type="radio" name="postType" value="series"> Tulisan Berlanjut (Seri)</label>
+            </div>
+        `;
+        
+        // Menyesuaikan label berdasarkan mode edit atau tipe post
+        let titleLabel = 'Judul Karya';
+        let contentLabel = 'Isi Karya';
+        if (isEdit) {
+            titleLabel = 'Judul';
+            contentLabel = (postData.postType === 'series') ? 'Deskripsi Seri' : 'Isi Karya';
+        }
+
+        modalContainer.innerHTML = `<div id="post-modal" class="modal">
+            <div class="modal-content">
+                <h2>${isEdit ? 'Edit Karya' : 'Kirim Karya Baru'}</h2>
+                <form id="post-form">
+                    ${postTypeSelection}
+                    <div class="form-group">
+                        <label for="post-title">${titleLabel}</label>
+                        <input type="text" id="post-title" value="${postData.title || ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="post-content">${contentLabel}</label>
+                        <textarea id="post-content" rows="8" required>${postData.content || postData.description || ''}</textarea>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button type="button" id="close-post-modal-btn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn" style="flex-grow:1;">${isEdit ? 'Simpan Perubahan' : 'Publikasikan'}</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+        
         modalContainer.querySelector('#close-post-modal-btn').onclick = () => modalContainer.innerHTML = '';
         modalContainer.querySelector('#post-form').addEventListener('submit', (e) => { e.preventDefault(); if (isEdit) { handleUpdatePost(postId); } else { handleCreatePost(); } });
+
+        // Tambah event listener untuk mengubah label (hanya saat create)
+        if (!isEdit) {
+            document.getElementsByName('postType').forEach(radio => {
+                radio.onchange = (e) => {
+                    const type = e.target.value;
+                    const titleLabelEl = document.querySelector('#post-form label[for="post-title"]');
+                    const contentLabelEl = document.querySelector('#post-form label[for="post-content"]');
+                    if (type === 'series') {
+                        titleLabelEl.textContent = 'Judul Seri';
+                        contentLabelEl.textContent = 'Deskripsi Singkat Seri';
+                    } else {
+                        titleLabelEl.textContent = 'Judul Karya';
+                        contentLabelEl.textContent = 'Isi Karya';
+                    }
+                };
+            });
+        }
     }
 
     function handleCreatePost() { 
+        // ... (fungsi handleCreatePost utuh) ...
         const title = document.getElementById('post-title').value;
         const content = document.getElementById('post-content').value;
+        const postType = document.querySelector('input[name="postType"]:checked').value;
+        
         showLoading("Memublikasikan..."); 
-        db.collection("posts").add({ 
-            title: title, 
-            content: content, 
+
+        let postData = {
+            title: title,
             authorName: currentUserData.name, 
             authorId: currentUserData.uid, 
             timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-            likeCount: 0,
-            commentCount: 0,
-            likes: []
-        }).then(() => { 
+            postType: postType,
+        };
+
+        if (postType === 'series') {
+            postData.description = content; // Simpan sebagai deskripsi
+            postData.chapterCount = 0;
+            // Untuk seri, like/comment ada di level bab, jadi tidak perlu di sini
+        } else {
+            postData.content = content; // Simpan sebagai isi
+            postData.likeCount = 0;
+            postData.commentCount = 0;
+            postData.likes = [];
+        }
+
+        db.collection("posts").add(postData).then(() => { 
             modalContainer.innerHTML = ''; 
+            // Tambah karyaCount (seri juga dihitung 1 karya)
             db.collection("users").doc(currentUserData.uid).update({ karyaCount: firebase.firestore.FieldValue.increment(1) });
         }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading()); 
     }
 
     function handleUpdatePost(postId) {
+        // ... (fungsi handleUpdatePost utuh) ...
         const title = document.getElementById('post-title').value;
         const content = document.getElementById('post-content').value;
         showLoading("Memperbarui..."); 
-        db.collection("posts").doc(postId).update({ 
-            title: title, 
-            content: content
-        }).then(() => { 
-            modalContainer.innerHTML = '';
-        }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading());
+        
+        // Cek dulu apakah ini seri atau post tunggal
+        db.collection("posts").doc(postId).get().then(doc => {
+            if (!doc.exists) {
+                hideLoading();
+                showCustomAlert("Karya tidak ditemukan.", "Error");
+                return;
+            }
+            let dataToUpdate = { title: title };
+            if (doc.data().postType === 'series') {
+                dataToUpdate.description = content; // Update deskripsi untuk seri
+            } else {
+                dataToUpdate.content = content; // Update isi untuk post tunggal
+            }
+
+            db.collection("posts").doc(postId).update(dataToUpdate).then(() => { 
+                modalContainer.innerHTML = '';
+            }).catch(err => showCustomAlert(err.message)).finally(()=>hideLoading());
+        });
     }
 
     async function handleDeletePost(postId) {
-        const confirmed = await showCustomConfirm("Yakin ingin menghapus karya ini?");
+        // ... (fungsi handleDeletePost utuh) ...
+        const confirmed = await showCustomConfirm("Yakin ingin menghapus karya ini? (Jika ini seri, semua bab di dalamnya akan ikut terhapus)");
         if (confirmed) {
             showLoading("Menghapus...");
             const postRef = db.collection("posts").doc(postId);
-            const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
-            
+            const postDoc = await postRef.get();
+            if (!postDoc.exists) {
+                 hideLoading();
+                 showCustomAlert("Karya tidak ditemukan.", "Error");
+                 return;
+            }
+
             const batch = db.batch();
-            commentsSnapshot.forEach(doc => batch.delete(doc.ref));
+            
+            // Hapus komentar post tunggal ATAU bab-bab dari seri
+            if (postDoc.data().postType === 'series') {
+                // Hapus semua bab dan komentar bab
+                const chaptersSnapshot = await db.collection("chapters").where("seriesId", "==", postId).get();
+                for (const chapterDoc of chaptersSnapshot.docs) {
+                    // Hapus komentar untuk setiap bab
+                    const chapterCommentsSnapshot = await db.collection("chapter_comments").where("chapterId", "==", chapterDoc.id).get();
+                    chapterCommentsSnapshot.forEach(commentDoc => batch.delete(commentDoc.ref));
+                    // Hapus bab
+                    batch.delete(chapterDoc.ref);
+                }
+            } else {
+                // Hapus komentar post tunggal
+                const commentsSnapshot = await db.collection("comments").where("postId", "==", postId).get();
+                commentsSnapshot.forEach(doc => batch.delete(doc.ref));
+            }
+
+            // Hapus post/seri itu sendiri
             batch.delete(postRef);
             
             await batch.commit();
@@ -741,7 +1076,9 @@
         }
     }
     
+    // --- FUNGSI LIKE/KOMENTAR POST TUNGGAL ---
     async function handleLikePost(postId) {
+        // ... (fungsi handleLikePost utuh) ...
         if (!currentUserData) { auth.signOut(); return; }
         const postRef = db.collection("posts").doc(postId);
         
@@ -751,16 +1088,17 @@
                 if (!postDoc.exists) throw "Karya tidak ada!";
 
                 const postData = postDoc.data();
-                const authorId = postData.authorId;
                 const likes = postData.likes || [];
                 let isLiked = likes.includes(currentUserData.uid);
 
                 if (isLiked) {
+                    // Unlike
                     transaction.update(postRef, { 
                         likes: firebase.firestore.FieldValue.arrayRemove(currentUserData.uid),
                         likeCount: firebase.firestore.FieldValue.increment(-1)
                     });
                 } else {
+                    // Like
                     transaction.update(postRef, { 
                         likes: firebase.firestore.FieldValue.arrayUnion(currentUserData.uid),
                         likeCount: firebase.firestore.FieldValue.increment(1)
@@ -774,6 +1112,7 @@
     }
 
     async function handleCreateComment(postId, content, parentId = 'root') {
+        // ... (fungsi handleCreateComment utuh) ...
         if (!currentUserData) { auth.signOut(); return; }
         if (!content.trim()) return;
 
@@ -790,6 +1129,8 @@
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
             await postRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
+            // Reset form jika ini komentar root
+            if(parentId === 'root') document.getElementById('comment-content').value = '';
         } catch (error) {
             console.error("Gagal mengirim komentar:", error);
             showCustomAlert("Gagal mengirim komentar.", "Error");
@@ -799,6 +1140,7 @@
     }
     
     async function handleEditComment(commentId) {
+        // ... (fungsi handleEditComment utuh) ...
         const newContent = prompt("Edit komentar Anda:");
         if (newContent === null) return; 
         showLoading("Menyimpan...");
@@ -807,6 +1149,7 @@
     }
 
     async function handleDeleteComment(commentId) {
+        // ... (fungsi handleDeleteComment utuh) ...
         if (await showCustomConfirm("Yakin ingin menghapus komentar ini?")) {
             showLoading("Menghapus...");
             const commentRef = db.collection("comments").doc(commentId);
@@ -819,6 +1162,464 @@
         }
     }
 
+    // --- FUNGSI UNTUK SERI & BAB ---
+
+    function renderSeriesDetailPage(seriesId) {
+        // ... (fungsi renderSeriesDetailPage utuh) ...
+        cleanupListeners();
+        showLoading("Memuat seri...");
+
+        // 1. Render kerangka (shell) halaman terlebih dahulu
+        appContainer.innerHTML = `
+            <div id="series-detail-view" class="card" data-series-id="${seriesId}">
+                <button id="back-to-mading-btn" class="back-btn">← Kembali</button>
+                
+                <!-- Kontainer untuk Info Seri (diisi oleh Listener 1) -->
+                <div id="series-info-container">
+                    <h1>Memuat info seri...</h1>
+                    <p class="meta"></p>
+                    <p id="series-description"></p>
+                    <div id="add-chapter-btn-container"></div>
+                </div>
+                
+                <hr style="margin: 25px 0;">
+                <h2 style="margin-bottom: 20px;">Daftar Bab</h2>
+                
+                <!-- Kontainer untuk Daftar Bab (diisi oleh Listener 2) -->
+                <ul id="chapter-list-container" style="list-style-type: none; padding: 0;">
+                    <p>Memuat daftar bab...</p>
+                </ul>
+            </div>`;
+
+        document.getElementById('back-to-mading-btn').onclick = renderDashboard;
+
+        // 2. Listener Pertama: Untuk info seri (dari koleksi 'posts')
+        const seriesListener = db.collection("posts").doc(seriesId).onSnapshot((seriesDoc) => {
+            const seriesContainer = document.getElementById('series-detail-view');
+            if (!seriesContainer) return; // User sudah pindah halaman
+
+            if (!seriesDoc.exists) {
+                showCustomAlert("Seri ini tidak ditemukan.", "Error");
+                renderDashboard();
+                return;
+            }
+
+            const seriesData = seriesDoc.data();
+            // Simpan data seri sementara untuk pengecekan kepemilikan di listener bab
+            seriesContainer.dataset.authorId = seriesData.authorId; 
+            const seriesInfoContainer = document.getElementById('series-info-container');
+            
+            if (seriesInfoContainer) {
+                let addChapterBtn = '';
+                // Tampilkan tombol tambah bab jika ini milik user
+                if (currentUserData && currentUserData.uid === seriesData.authorId) {
+                    addChapterBtn = `<button id="add-chapter-btn" data-series-id="${seriesId}" class="btn" style="margin-top: 15px;">+ Tambah Bab Baru</button>`;
+                }
+
+                // Isi kontainer info seri
+                seriesInfoContainer.innerHTML = `
+                    <h1>${seriesData.title}</h1>
+                    <p class="meta">Seri oleh <a href="#" class="author-link" data-author-id="${seriesData.authorId}">${seriesData.authorName}</a></p>
+                    <p id="series-description" style="white-space: pre-wrap; line-height: 1.7;">${seriesData.description}</p>
+                    <div id="add-chapter-btn-container">${addChapterBtn}</div>
+                `;
+            }
+            
+            hideLoading(); // Sembunyikan loading setelah info seri (utama) dimuat
+
+        }, error => {
+            console.error("Gagal memuat info seri:", error);
+            showCustomAlert("Gagal memuat info seri.", "Error");
+            renderDashboard();
+        });
+
+        // 3. Listener Kedua: Untuk daftar bab (dari koleksi 'chapters')
+        const chaptersListener = db.collection("chapters").where("seriesId", "==", seriesId)
+            .onSnapshot((chaptersSnapshot) => {
+                const chapterListContainer = document.getElementById('chapter-list-container');
+                const seriesContainer = document.getElementById('series-detail-view'); // Ambil container seri
+                if (!chapterListContainer || !seriesContainer) return; // User sudah pindah halaman
+                
+                const seriesAuthorId = seriesContainer.dataset.authorId; // Ambil authorId dari dataset
+
+                if (chaptersSnapshot.empty) {
+                    chapterListContainer.innerHTML = '<p>Belum ada bab yang dipublikasikan.</p>';
+                } else {
+                    const chapters = chaptersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                    chapters.sort((a, b) => (a.chapterNumber || 0) - (b.chapterNumber || 0));
+                    
+                    // Render dari data yang sudah disortir
+                    chapterListContainer.innerHTML = chapters.map(chapter => {
+                        let chapterActions = '';
+                        // Tambahkan tombol edit/hapus jika user adalah pemilik
+                        if (currentUserData && currentUserData.uid === seriesAuthorId) {
+                             chapterActions = `
+                                <div class="chapter-actions" style="margin-top: 10px; text-align: right;">
+                                    <button class="btn btn-secondary edit-chapter-btn" data-chapter-id="${chapter.id}" style="padding: 5px 10px; font-size: 0.8em;">Edit</button>
+                                    <button class="btn btn-danger delete-chapter-btn" data-chapter-id="${chapter.id}" style="padding: 5px 10px; font-size: 0.8em;">Hapus</button>
+                                </div>
+                             `;
+                        }
+
+                        return `
+                            <li data-chapter-id="${chapter.id}" style="padding: 15px; background: var(--accent); border-radius: 8px; margin-bottom: 10px;">
+                                <div style="cursor: pointer;" class="chapter-link"> <!-- Wrapper untuk klik -->
+                                    <h4 style="margin:0 0 5px;">Bab ${chapter.chapterNumber}: ${chapter.title}</h4>
+                                    <small>❤️ ${chapter.likeCount || 0} | 💬 ${chapter.commentCount || 0}</small>
+                                </div>
+                                ${chapterActions}
+                            </li>
+                        `;
+                    }).join('');
+                }
+            }, error => {
+                console.error("Gagal memuat daftar bab:", error);
+                const chapterListContainer = document.getElementById('chapter-list-container');
+                if(chapterListContainer) chapterListContainer.innerHTML = "<p>Gagal memuat bab. Coba refresh halaman.</p>";
+            });
+
+        // 4. Gabungkan kedua listener ke 'stopViewListener' agar bisa di-cleanup
+        stopViewListener = () => {
+            seriesListener();
+            chaptersListener();
+        };
+    }
+
+    function renderChapterModal(mode, seriesId, chapterData = {}, chapterId = '') {
+        // ... (fungsi renderChapterModal utuh) ...
+        const isEdit = mode === 'edit';
+        modalContainer.innerHTML = `<div id="chapter-modal" class="modal">
+            <div class="modal-content">
+                <h2>${isEdit ? 'Edit Bab' : 'Tambah Bab Baru'}</h2>
+                <form id="chapter-form" data-series-id="${seriesId}" data-chapter-id="${chapterId}">
+                    <div class="form-group">
+                        <label for="chapter-number">Nomor Bab (cth: 1, 2, 3.5)</label>
+                        <input type="number" id="chapter-number" value="${chapterData.chapterNumber || ''}" step="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="chapter-title">Judul Bab</label>
+                        <input type="text" id="chapter-title" value="${chapterData.title || ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="chapter-content">Isi Bab</label>
+                        <textarea id="chapter-content" rows="10" required>${chapterData.content || ''}</textarea>
+                    </div>
+                    <div style="display:flex; gap:10px; margin-top:20px;">
+                        <button type="button" id="close-chapter-modal-btn" class="btn btn-secondary">Batal</button>
+                        <button type="submit" class="btn" style="flex-grow:1;">${isEdit ? 'Simpan Bab' : 'Publikasikan Bab'}</button>
+                    </div>
+                </form>
+            </div>
+        </div>`;
+        
+        modalContainer.querySelector('#close-chapter-modal-btn').onclick = () => modalContainer.innerHTML = '';
+        modalContainer.querySelector('#chapter-form').addEventListener('submit', (e) => { 
+            e.preventDefault(); 
+            if (isEdit) { 
+                handleUpdateChapter(chapterId); // Panggil fungsi update
+            } else { 
+                handleCreateChapter(seriesId); 
+            } 
+        });
+    }
+
+    async function handleCreateChapter(seriesId) {
+        // ... (fungsi handleCreateChapter utuh) ...
+        const title = document.getElementById('chapter-title').value;
+        const content = document.getElementById('chapter-content').value;
+        const chapterNumber = parseFloat(document.getElementById('chapter-number').value);
+
+        if (isNaN(chapterNumber)) {
+            showCustomAlert("Nomor bab tidak valid.", "Error");
+            return;
+        }
+
+        showLoading("Memublikasikan bab...");
+        
+        const seriesRef = db.collection("posts").doc(seriesId);
+        const chaptersRef = db.collection("chapters");
+        
+        const newChapterRef = chaptersRef.doc();
+
+        try {
+            await db.runTransaction(async (transaction) => {
+                transaction.set(newChapterRef, {
+                    seriesId: seriesId,
+                    authorId: currentUserData.uid,
+                    authorName: currentUserData.name,
+                    title: title,
+                    content: content,
+                    chapterNumber: chapterNumber,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    likeCount: 0,
+                    commentCount: 0,
+                    likes: []
+                });
+
+                transaction.update(seriesRef, {
+                    chapterCount: firebase.firestore.FieldValue.increment(1)
+                });
+            });
+
+            modalContainer.innerHTML = '';
+        } catch (error) {
+            console.error("Gagal membuat bab:", error);
+            showCustomAlert("Gagal memublikasikan bab.", "Error");
+        } finally {
+            hideLoading();
+        }
+    }
+
+     async function handleUpdateChapter(chapterId) {
+        // ... (fungsi handleUpdateChapter utuh) ...
+        const title = document.getElementById('chapter-title').value;
+        const content = document.getElementById('chapter-content').value;
+        const chapterNumber = parseFloat(document.getElementById('chapter-number').value);
+
+        if (isNaN(chapterNumber)) {
+            showCustomAlert("Nomor bab tidak valid.", "Error");
+            return;
+        }
+
+        showLoading("Memperbarui bab...");
+        const chapterRef = db.collection("chapters").doc(chapterId);
+
+        try {
+            await chapterRef.update({
+                title: title,
+                content: content,
+                chapterNumber: chapterNumber
+            });
+            modalContainer.innerHTML = ''; // Tutup modal
+            // List akan refresh otomatis karena onSnapshot
+        } catch (error) {
+            console.error("Gagal memperbarui bab:", error);
+            showCustomAlert("Gagal memperbarui bab.", "Error");
+        } finally {
+            hideLoading();
+        }
+    }
+
+    async function handleDeleteChapter(chapterId) {
+        // ... (fungsi handleDeleteChapter utuh) ...
+        const confirmed = await showCustomConfirm("Yakin ingin menghapus bab ini beserta semua komentarnya?");
+        if (confirmed) {
+            showLoading("Menghapus bab...");
+            const chapterRef = db.collection("chapters").doc(chapterId);
+            
+            try {
+                // Ambil dulu seriesId sebelum dihapus
+                const chapterDoc = await chapterRef.get();
+                if (!chapterDoc.exists) {
+                    throw new Error("Bab tidak ditemukan.");
+                }
+                const seriesId = chapterDoc.data().seriesId;
+                const seriesRef = db.collection("posts").doc(seriesId);
+
+                const batch = db.batch();
+
+                // 1. Hapus semua komentar bab
+                const commentsSnapshot = await db.collection("chapter_comments").where("chapterId", "==", chapterId).get();
+                commentsSnapshot.forEach(doc => {
+                    batch.delete(doc.ref);
+                });
+
+                // 2. Hapus bab itu sendiri
+                batch.delete(chapterRef);
+
+                // 3. Kurangi chapterCount di seri induk
+                batch.update(seriesRef, {
+                    chapterCount: firebase.firestore.FieldValue.increment(-1)
+                });
+
+                await batch.commit();
+                showCustomAlert("Bab berhasil dihapus.");
+                // List akan refresh otomatis karena onSnapshot
+            } catch (error) {
+                console.error("Gagal menghapus bab:", error);
+                showCustomAlert("Gagal menghapus bab.", "Error");
+            } finally {
+                hideLoading();
+            }
+        }
+    }
+
+    function renderChapterDetailPage(chapterId) {
+        // ... (fungsi renderChapterDetailPage utuh) ...
+        cleanupListeners();
+        showLoading("Memuat bab...");
+
+        stopViewListener = db.collection("chapters").doc(chapterId).onSnapshot(async (chapterDoc) => {
+            if (!document.getElementById('app-container')) return; 
+            if (!chapterDoc.exists) {
+                showCustomAlert("Bab ini tidak ditemukan.", "Error");
+                renderDashboard(); // Kembali ke dashboard jika bab hilang
+                return;
+            }
+            const chapterData = { id: chapterDoc.id, ...chapterDoc.data() };
+            
+            const commentsSnapshot = await db.collection("chapter_comments").where("chapterId", "==", chapterId).get();
+            let comments = [];
+            commentsSnapshot.forEach(doc => comments.push({id: doc.id, ...doc.data()}));
+            comments.sort((a, b) => (a.timestamp?.toDate() || 0) - (b.timestamp?.toDate() || 0));
+
+            const isLiked = currentUserData && chapterData.likes && chapterData.likes.includes(currentUserData.uid);
+            
+            appContainer.innerHTML = `
+                <div id="chapter-detail-view" class="card" data-chapter-id="${chapterData.id}" data-series-id="${chapterData.seriesId}">
+                    <button id="back-to-series-btn" class="back-btn">← Kembali ke Daftar Bab</button>
+                    <h1>Bab ${chapterData.chapterNumber}: ${chapterData.title}</h1>
+                    <p class="meta">oleh <a href="#" class="author-link" data-author-id="${chapterData.authorId}">${chapterData.authorName}</a> pada ${chapterData.timestamp ? chapterData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
+                    <p style="white-space: pre-wrap; line-height: 1.8;">${chapterData.content}</p>
+                    <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <button id="like-chapter-btn" class="like-btn ${isLiked ? 'liked' : ''}" data-like-chapter-id="${chapterData.id}">
+                            ❤️ <span id="like-count">${chapterData.likeCount || 0}</span> Suka
+                        </button>
+                    </div>
+                    <div class="comment-section">
+                        <h3>Komentar (${chapterData.commentCount || 0})</h3>
+                        <form id="chapter-comment-form" class="form-group">
+                            <textarea id="chapter-comment-content" rows="3" placeholder="Tulis komentar Anda..." required></textarea>
+                            <button type="submit" class="btn" style="margin-top:10px;">Kirim</button>
+                        </form>
+                        <ul id="comment-list" class="comment-list"></ul>
+                    </div>
+                </div>`;
+
+            const commentList = document.getElementById('comment-list');
+            commentList.innerHTML = '';
+            const commentsByParent = comments.reduce((acc, comment) => {
+                const parentId = comment.parentId || 'root';
+                if (!acc[parentId]) acc[parentId] = [];
+                acc[parentId].push(comment);
+                return acc;
+            }, {});
+
+            const renderCommentTree = (parentId, container) => {
+                if (!commentsByParent[parentId]) return;
+                commentsByParent[parentId].forEach(comment => {
+                    let menuButton = '';
+                    if (currentUserData && currentUserData.uid === comment.authorId) {
+                        menuButton = `<div class="post-menu"><button class="post-menu-btn" data-menu-id="comment-${comment.id}">&#8942;</button><div id="menu-comment-${comment.id}" class="dropdown-menu"><a href="#" class="edit-chapter-comment-btn" data-comment-id="${comment.id}">Edit</a><a href="#" class="delete-chapter-comment-btn" data-comment-id="${comment.id}">Hapus</a></div></div>`;
+                    }
+                    const li = document.createElement('li');
+                    li.className = 'comment-item';
+                    li.innerHTML = `
+                        ${menuButton}
+                        <strong>${comment.authorName}</strong>
+                        <p>${comment.content}</p>
+                        <div class="reply-btn" data-comment-id="${comment.id}">Balas</div>
+                    `;
+                    container.appendChild(li);
+                    
+                    const repliesContainer = document.createElement('div');
+                    repliesContainer.className = 'replies-container';
+                    li.appendChild(repliesContainer);
+                    renderCommentTree(comment.id, repliesContainer);
+                });
+            };
+
+            if(comments.length > 0) {
+                renderCommentTree('root', commentList);
+            } else {
+                commentList.innerHTML = '<p>Jadilah yang pertama berkomentar!</p>';
+            }
+            
+            document.getElementById('back-to-series-btn').onclick = () => renderSeriesDetailPage(chapterData.seriesId);
+            hideLoading();
+        }, error => {
+            console.error("Gagal membuka bab:", error);
+            showCustomAlert("Gagal membuka bab.", "Error");
+            renderDashboard();
+        });
+    }
+
+    async function handleLikeChapter(chapterId) {
+        // ... (fungsi handleLikeChapter utuh) ...
+        if (!currentUserData) { auth.signOut(); return; }
+        const chapterRef = db.collection("chapters").doc(chapterId);
+        
+        try {
+            await db.runTransaction(async (transaction) => {
+                const chapterDoc = await transaction.get(chapterRef);
+                if (!chapterDoc.exists) throw "Bab tidak ada!";
+
+                const chapterData = chapterDoc.data();
+                const likes = chapterData.likes || [];
+                let isLiked = likes.includes(currentUserData.uid);
+
+                if (isLiked) {
+                    transaction.update(chapterRef, { 
+                        likes: firebase.firestore.FieldValue.arrayRemove(currentUserData.uid),
+                        likeCount: firebase.firestore.FieldValue.increment(-1)
+                    });
+                } else {
+                    transaction.update(chapterRef, { 
+                        likes: firebase.firestore.FieldValue.arrayUnion(currentUserData.uid),
+                        likeCount: firebase.firestore.FieldValue.increment(1)
+                    });
+                }
+            });
+        } catch (error) {
+            console.error("Gagal menyukai bab:", error);
+            showCustomAlert("Gagal memberikan suka.", "Error");
+        }
+    }
+
+    async function handleCreateChapterComment(chapterId, content, parentId = 'root') {
+        // ... (fungsi handleCreateChapterComment utuh) ...
+        if (!currentUserData) { auth.signOut(); return; }
+        if (!content.trim()) return;
+
+        showLoading("Mengirim komentar...");
+        const chapterRef = db.collection("chapters").doc(chapterId);
+
+        try {
+            await db.collection("chapter_comments").add({
+                chapterId: chapterId,
+                content: content,
+                parentId: parentId,
+                authorId: currentUserData.uid,
+                authorName: currentUserData.name,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            await chapterRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
+            
+            if(parentId === 'root') document.getElementById('chapter-comment-content').value = '';
+
+        } catch (error) {
+            console.error("Gagal mengirim komentar bab:", error);
+            showCustomAlert("Gagal mengirim komentar.", "Error");
+        } finally {
+            hideLoading();
+        }
+    }
+    
+    async function handleEditChapterComment(commentId) {
+        // ... (fungsi handleEditChapterComment utuh) ...
+        const newContent = prompt("Edit komentar Anda:");
+        if (newContent === null) return; 
+        showLoading("Menyimpan...");
+        await db.collection("chapter_comments").doc(commentId).update({ content: newContent }).catch(err => showCustomAlert("Gagal mengedit komentar.", "Error"));
+        hideLoading();
+    }
+
+    async function handleDeleteChapterComment(commentId) {
+        // ... (fungsi handleDeleteChapterComment utuh) ...
+        if (await showCustomConfirm("Yakin ingin menghapus komentar ini?")) {
+            showLoading("Menghapus...");
+            const commentRef = db.collection("chapter_comments").doc(commentId);
+            const commentDoc = await commentRef.get();
+            const chapterId = commentDoc.data().chapterId;
+            
+            await commentRef.delete();
+            await db.collection("chapters").doc(chapterId).update({ commentCount: firebase.firestore.FieldValue.increment(-1) });
+            hideLoading();
+        }
+    }
+
+    // ... (sisa fungsi: PROFIL, SOSIAL, LUCKY DRAW, dll) ...
+    // --- FUNGSI PROFIL & SOSIAL ---
     function handleFollow(id){ 
         if (!currentUserData) { auth.signOut(); return; }
         showLoading("Mengikuti..."); 
@@ -827,7 +1628,7 @@
         batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayUnion(currentUserData.uid)}); 
         batch.commit()
             .then(() => {
-                currentUserData.following.push(id);
+                currentUserData.following.push(id); // Update data lokal
                 updateFollowButton(id, true);
                 hideLoading();
             })
@@ -842,7 +1643,7 @@
         batch.update(db.collection('users').doc(id),{followers:firebase.firestore.FieldValue.arrayRemove(currentUserData.uid)}); 
         batch.commit()
             .then(() => {
-                currentUserData.following = currentUserData.following.filter(uid => uid !== id);
+                currentUserData.following = currentUserData.following.filter(uid => uid !== id); // Update data lokal
                 updateFollowButton(id, false);
                 hideLoading();
             })
@@ -860,18 +1661,6 @@
         }
     }
 
-    function handleSendChatMessage() {
-        const input = document.getElementById('chat-input');
-        if(!input || !input.value.trim()) return;
-        db.collection("chat_messages").add({
-            authorId: currentUserData.uid,
-            authorName: currentUserData.name,
-            content: input.value,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        input.value = '';
-    }
-
     async function handleUpdateName() {
         const newName = document.getElementById('new-name').value;
         if (!newName.trim()) {
@@ -881,7 +1670,7 @@
         showLoading("Menyimpan nama...");
         await db.collection("users").doc(currentUserData.uid).update({ name: newName });
         showCustomAlert("Nama berhasil diubah.", "Sukses");
-        renderProfilePage(currentUserData.uid);
+        renderProfilePage(currentUserData.uid); // Render ulang profil
     }
 
     async function handleChangePassword() {
@@ -907,7 +1696,9 @@
         if(confirmation === 'HAPUS') {
             showLoading("Menghapus akun...");
             try {
+                // Hapus data pengguna (perlu cloud function untuk hapus semua karyanya)
                 await db.collection("users").doc(currentUserData.uid).delete();
+                // Hapus akun auth
                 await auth.currentUser.delete();
             } catch (error) {
                 showCustomAlert("Gagal menghapus akun. Silakan logout dan login kembali untuk melanjutkan.", "Error");
@@ -918,18 +1709,22 @@
         }
     }
 
+    // --- FUNGSI EKSTRA (Lucky Draw) ---
+
     async function handleFindBestWork() {
         showLoading("Mencari karya terbaik minggu ini...");
 
+        // Tentukan awal minggu (Senin 09:00 WIB)
         const now = new Date();
-        const dayOfWeek = now.getDay(); 
-        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        const dayOfWeek = now.getDay(); // Minggu = 0, Senin = 1
+        const daysToSubtract = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Jarak dari Senin
         
         const startOfWeek = new Date(now);
         startOfWeek.setDate(now.getDate() - daysToSubtract);
-        startOfWeek.setHours(9, 0, 0, 0);
+        startOfWeek.setHours(9, 0, 0, 0); // Set ke jam 9 pagi
 
-        if (now < startOfWeek) {
+        // Jika hari ini Senin tapi belum jam 9, ambil data minggu lalu
+        if (dayOfWeek === 1 && now.getHours() < 9) {
              startOfWeek.setDate(startOfWeek.getDate() - 7);
         }
         
@@ -940,6 +1735,7 @@
 
             if (postsSnapshot.empty) {
                 showCustomAlert("Belum ada karya yang dikirim minggu ini untuk dinilai.", "Informasi");
+                hideLoading();
                 return;
             }
 
@@ -948,10 +1744,13 @@
 
             postsSnapshot.forEach(doc => {
                 const post = { id: doc.id, ...doc.data() };
-                const score = (post.likeCount || 0) * 2 + (post.commentCount || 0);
-                if (score > maxScore) {
-                    maxScore = score;
-                    bestPost = post;
+                // Hanya hitung post tunggal untuk 'karya terbaik'
+                if (post.postType !== 'series' && post.postType !== 'SERIES') {
+                     const score = (post.likeCount || 0) * 2 + (post.commentCount || 0);
+                    if (score > maxScore) {
+                        maxScore = score;
+                        bestPost = post;
+                    }
                 }
             });
 
@@ -960,7 +1759,7 @@
                     <div class="modal">
                         <div class="modal-content" style="text-align:center;">
                             <h2>🏆 Karya Terbaik Minggu Ini 🏆</h2>
-                            <p>Dipilih berdasarkan interaksi terbanyak sejak Senin, 09.00 WIB.</p>
+                            <p>Dipilih berdasarkan interaksi terbanyak (karya tunggal) sejak Senin, 09.00 WIB.</p>
                             <div style="background-color:var(--accent); padding:20px; border-radius:8px; margin:20px 0;">
                                 <h3 style="color:var(--primary); margin:0 0 5px;">${bestPost.title}</h3>
                                 <p style="margin:0;">oleh: <strong>${bestPost.authorName}</strong></p>
@@ -978,7 +1777,7 @@
                     renderPostDetailPage(bestPost.id);
                 };
             } else {
-                 showCustomAlert("Belum ada karya yang dikirim minggu ini untuk dinilai.", "Informasi");
+                 showCustomAlert("Belum ada karya tunggal (non-seri) yang dikirim minggu ini untuk dinilai.", "Informasi");
             }
         } catch (error) {
             console.error("Gagal mencari karya terbaik:", error);
@@ -987,6 +1786,9 @@
             hideLoading();
         }
     }
+
+// Penutup DOMContentLoaded
+});
 </script>
 </body>
 </html>
