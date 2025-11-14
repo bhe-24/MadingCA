@@ -377,8 +377,9 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 // Post tunggal (default)
                 clickableElement = `<div class="post-card-clickable" data-post-id="${post.id}">`; // Atribut data untuk post
+                // PERUBAHAN: Mengubah teks "Suka" menjadi "*****"
                 postStats = `
-                    <span>❤️ ${post.likeCount || 0} Suka</span>
+                    <span>💓 ${post.likeCount || 0} Suka</span>
                     <span>💬 ${post.commentCount || 0} Komentar</span>
                 `;
             }
@@ -449,8 +450,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <p class="meta">oleh <a href="#" class="author-link" data-author-id="${postData.authorId}">${postData.authorName}</a> pada ${postData.timestamp ? postData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
                         <p style="white-space: pre-wrap; line-height: 1.8;">${postData.content}</p>
                         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                            <!-- PERUBAHAN: Mengubah teks "Suka" menjadi "*****" -->
                             <button id="like-btn" class="like-btn ${isLiked ? 'liked' : ''}">
-                                ❤️ <span id="like-count">${postData.likeCount || 0}</span> Suka
+                                💓 <span id="like-count">${postData.likeCount || 0}</span> Suka
                             </button>
                         </div>
                         <div class="comment-section">
@@ -904,7 +906,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const password = document.getElementById('login-password').value; 
         auth.signInWithEmailAndPassword(email, password).catch((error) => { 
             hideLoading(); 
-            showCustomAlert(error.message, "Gagal Login"); 
+            // PERUBAHAN: Mengubah pesan error login
+            showCustomAlert("Email atau password yang Anda masukkan salah. Silakan coba lagi.", "Gagal Login"); 
         }); 
     });
     
@@ -1265,7 +1268,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <li data-chapter-id="${chapter.id}" style="padding: 15px; background: var(--accent); border-radius: 8px; margin-bottom: 10px;">
                                 <div style="cursor: pointer;" class="chapter-link"> <!-- Wrapper untuk klik -->
                                     <h4 style="margin:0 0 5px;">Bab ${chapter.chapterNumber}: ${chapter.title}</h4>
-                                    <small>❤️ ${chapter.likeCount || 0} | 💬 ${chapter.commentCount || 0}</small>
+                                    <small>💓 ${chapter.likeCount || 0} | 💬 ${chapter.commentCount || 0}</small>
                                 </div>
                                 ${chapterActions}
                             </li>
@@ -1472,8 +1475,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     <p class="meta">oleh <a href="#" class="author-link" data-author-id="${chapterData.authorId}">${chapterData.authorName}</a> pada ${chapterData.timestamp ? chapterData.timestamp.toDate().toLocaleString('id-ID') : ''}</p>
                     <p style="white-space: pre-wrap; line-height: 1.8;">${chapterData.content}</p>
                     <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
+                        <!-- PERUBAHAN: Mengubah teks "Suka" menjadi "*****" -->
                         <button id="like-chapter-btn" class="like-btn ${isLiked ? 'liked' : ''}" data-like-chapter-id="${chapterData.id}">
-                            ❤️ <span id="like-count">${chapterData.likeCount || 0}</span> Suka
+                            💓 <span id="like-count">${chapterData.likeCount || 0}</span> Suka
                         </button>
                     </div>
                     <div class="comment-section">
@@ -1691,21 +1695,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // PERUBAHAN: Fungsi konfirmasi hapus akun yang baru
+    function showCustomDeleteConfirm() {
+        return new Promise(resolve => {
+            modalContainer.innerHTML = `
+                <div class="modal">
+                    <div class="modal-content">
+                        <h2>Konfirmasi Hapus Akun</h2>
+                        <p>Ini adalah tindakan permanen. Ketik <strong>HAPUS</strong> di kolom di bawah untuk mengonfirmasi penghapusan akun.</p>
+                        <input type="text" id="delete-confirmation-input" style="width: 100%; margin-top:15px; padding:10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box;">
+                        <div style="display:flex; gap:10px; justify-content: flex-end; margin-top:20px;">
+                            <button id="modal-cancel-btn" class="btn btn-secondary">Batal</button>
+                            <button id="modal-confirm-btn" class="btn btn-danger">Hapus Akun Saya</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            const confirmBtn = document.getElementById('modal-confirm-btn');
+            const cancelBtn = document.getElementById('modal-cancel-btn');
+            const input = document.getElementById('delete-confirmation-input');
+
+            const closeModal = (result) => {
+                modalContainer.innerHTML = '';
+                resolve(result);
+            };
+
+            if (confirmBtn) {
+                confirmBtn.onclick = () => {
+                    if (input.value === 'HAPUS') {
+                        closeModal(true);
+                    } else {
+                        showCustomAlert('Ketik "HAPUS" untuk mengonfirmasi.');
+                    }
+                };
+            }
+            if (cancelBtn) cancelBtn.onclick = () => closeModal(false);
+        });
+    }
+
     async function handleDeleteAccount() {
-        const confirmation = prompt("Ini adalah tindakan permanen. Ketik 'HAPUS' untuk mengonfirmasi penghapusan akun.");
-        if(confirmation === 'HAPUS') {
+        const confirmed = await showCustomDeleteConfirm(); // Menggunakan fungsi konfirmasi baru
+        if (confirmed) {
             showLoading("Menghapus akun...");
             try {
-                // Hapus data pengguna (perlu cloud function untuk hapus semua karyanya)
+                // Hapus data pengguna dari Firestore
                 await db.collection("users").doc(currentUserData.uid).delete();
-                // Hapus akun auth
+                // Hapus akun autentikasi
                 await auth.currentUser.delete();
+                // Tampilkan pesan sukses
+                showCustomAlert("Akun berhasil dihapus.", "Sukses");
             } catch (error) {
-                showCustomAlert("Gagal menghapus akun. Silakan logout dan login kembali untuk melanjutkan.", "Error");
+                console.error("Error deleting account:", error);
+                showCustomAlert("Gagal menghapus akun. Terjadi kesalahan di server.", "Error");
+            } finally {
+                // Pastikan loading selalu disembunyikan
                 hideLoading();
             }
-        } else {
-            showCustomAlert("Penghapusan akun dibatalkan.", "Info");
         }
     }
 
@@ -1792,4 +1837,3 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
-
